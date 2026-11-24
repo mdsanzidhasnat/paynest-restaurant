@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Kheer">
+  <rect width="200" height="200" fill="#FFF7E8"/>
+  <circle cx="100" cy="100" r="86" fill="none" stroke="#D6AA52" stroke-width="3" opacity="0.4"/>
+  <circle cx="78" cy="108" r="28" fill="#D6AA52" opacity="0.9"/><circle cx="122" cy="108" r="28" fill="#D6AA52" opacity="0.75"/><circle cx="100" cy="80" r="24" fill="#D6AA52" opacity="0.6"/><path d="M55 142h90" stroke="#85631F" stroke-width="6" stroke-linecap="round"/>
+  <text x="100" y="181" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#85631F">Kheer</text>
+</svg>

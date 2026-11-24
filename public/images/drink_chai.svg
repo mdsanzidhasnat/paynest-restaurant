@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Masala Chai">
+  <rect width="200" height="200" fill="#F7F0E3"/>
+  <circle cx="100" cy="100" r="86" fill="none" stroke="#8C6239" stroke-width="3" opacity="0.4"/>
+  <path d="M67 46h66l-8 122c-.5 8-7 14-15 14h-20c-8 0-14.5-6-15-14z" fill="#8C6239" opacity="0.92"/><rect x="63" y="40" width="74" height="12" rx="6" fill="#51371E"/><rect x="104" y="22" width="9" height="26" rx="4" fill="#51371E" transform="rotate(18 108 35)"/>
+  <text x="100" y="181" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#51371E">Masala Chai</text>
+</svg>

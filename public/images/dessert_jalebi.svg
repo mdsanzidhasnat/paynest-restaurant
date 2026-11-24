@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Jalebi">
+  <rect width="200" height="200" fill="#FFF4DC"/>
+  <circle cx="100" cy="100" r="86" fill="none" stroke="#E0A020" stroke-width="3" opacity="0.4"/>
+  <circle cx="78" cy="108" r="28" fill="#E0A020" opacity="0.9"/><circle cx="122" cy="108" r="28" fill="#E0A020" opacity="0.75"/><circle cx="100" cy="80" r="24" fill="#E0A020" opacity="0.6"/><path d="M55 142h90" stroke="#8A590A" stroke-width="6" stroke-linecap="round"/>
+  <text x="100" y="181" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#8A590A">Jalebi</text>
+</svg>

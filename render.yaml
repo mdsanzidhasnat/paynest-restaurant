@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: paynest-pos
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: DB_PATH
+        value: ./data/pos.db
+      - key: CORS_ORIGIN
+        sync: false

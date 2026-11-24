@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Staff">
+  <rect width="200" height="200" fill="#EAF0F6"/>
+  <circle cx="100" cy="100" r="86" fill="none" stroke="#4F6E8F" stroke-width="3" opacity="0.4"/>
+  <circle cx="100" cy="72" r="30" fill="#4F6E8F" opacity="0.85"/><path d="M44 172c0-34 25-58 56-58s56 24 56 58" fill="#4F6E8F" opacity="0.7"/>
+  <text x="100" y="181" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#273D54">Staff</text>
+</svg>
