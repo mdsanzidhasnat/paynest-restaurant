@@ -136,7 +136,7 @@ npm run smoke
 npm audit
 ```
 
-`npm run lint` type-checks, `npm test` runs Vitest with Supertest, `npm run build` builds both targets, and `npm run smoke` verifies the native bcrypt/better-sqlite3 modules. CI runs lint, build, tests and `npm audit --omit=dev --audit-level=high`; results are recorded in [docs/security-audit.md](./docs/security-audit.md).
+`npm run lint` type-checks, `npm test` runs Vitest with Supertest, `npm run build` builds both targets, and `npm run smoke` verifies the native bcrypt/better-sqlite3 modules. `npm run dev` uses `cross-env` for its inline environment variables, and `npm run clean` removes `dist/` and `dist-server/` with a Node script instead of shell-specific `rm`. CI runs lint, build, tests and `npm audit --omit=dev --audit-level=high`; results are recorded in [docs/security-audit.md](./docs/security-audit.md).
 
 ## Supported operating systems
 

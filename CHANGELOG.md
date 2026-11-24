@@ -21,6 +21,7 @@ First release of PayNest Restaurant as a single-service table-management applica
 
 - Cashier discount requests above `MAX_CASHIER_DISCOUNT_PERCENT` now return `403`; valid requests are still resolved and clamped on the server.
 - Missing paths under `/assets` now return a real `404` instead of falling through to the SPA shell.
+- Development and clean scripts are cross-platform (`cross-env` and a Node-based cleanup script), and `@types/node` is pinned to `20.19.43` to match the Node `20.19.0` runtime.
 
 ### Security
 

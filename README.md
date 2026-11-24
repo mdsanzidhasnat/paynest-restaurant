@@ -130,7 +130,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open `http://localhost:3000` for the staff app. The API listens on `http://localhost:3001` in development and Vite proxies `/api` to it. For production, check [HowToSetup.md](./HowToSetup.md).
+Open `http://localhost:3000` for the staff app. The API listens on `http://localhost:3001` in development and Vite proxies `/api` to it. Development uses `cross-env` for inline environment variables and `npm run clean` uses a Node-based cleanup script, so both work on Windows, macOS and Linux. For production, check [HowToSetup.md](./HowToSetup.md).
 
 ## Documentation
 

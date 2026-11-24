@@ -9,7 +9,7 @@ Audit date: 2026-11-24
 | `npm audit` | `found 0 vulnerabilities` |
 | `npm audit --omit=dev --audit-level=high` | `found 0 vulnerabilities` |
 
-Both commands were run from the repository root against the committed `package-lock.json`. The second command is the production-dependency gate used by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml); it fails the build on any high or critical advisory in runtime dependencies.
+Both commands were run from the repository root against the committed `package-lock.json`. The final dependency set added dev-only `cross-env@10.1.0` and aligned `@types/node@20.19.43` with the Node `20.19.0` runtime; both audits were rerun after that change. The second command is the production-dependency gate used by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml); it fails the build on any high or critical advisory in runtime dependencies.
 
 ## Related controls
 
