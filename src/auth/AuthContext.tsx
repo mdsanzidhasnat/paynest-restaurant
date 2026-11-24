@@ -31,7 +31,9 @@ export type Permission =
   | 'sales:delete'
   | 'dues:read'
   | 'dues:write'
-  | 'reports:read';
+  | 'reports:read'
+  | 'tables:read'
+  | 'tables:qr';
 
 interface AuthContextValue {
   user: AuthUser | null;

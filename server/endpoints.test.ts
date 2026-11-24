@@ -145,7 +145,9 @@ describe('tables and QR tokens', () => {
     const tableId = await newTable();
     const issued = await call('waiter', 'get', `/api/tables/${tableId}/qr`);
     expect(issued.status).toBe(200);
-    expect(verifyTableToken(issued.body.token)).toEqual({ tableId, version: 1 });
+    const payload = verifyTableToken(issued.body.token);
+    expect(payload).toMatchObject({ tableId, version: 1 });
+    expect(payload?.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000));
     expect(verifyTableToken(`${issued.body.token}tampered`)).toBeNull();
 
     const denied = await call('waiter', 'post', `/api/tables/${tableId}/qr/rotate`, {});

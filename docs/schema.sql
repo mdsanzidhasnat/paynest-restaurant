@@ -28,6 +28,7 @@
 --   implicit UNIQUE orders.order_number            - atomic order numbering; no duplicates
 --   implicit UNIQUE orders.bill_number             - atomic bill numbering; no duplicates
 --   idx_orders_table                               - open history for one table (FK lookup)
+--   idx_orders_table_status                        - public order lookup and pending queue
 --   idx_orders_opened_by                           - orders opened by a staff member (FK lookup)
 --   idx_orders_status                              - kitchen/waiter queues by order status
 --   idx_orders_created_at                          - recent orders and daily turnover reports
@@ -95,6 +96,10 @@ CREATE TABLE IF NOT EXISTS settings (
   paper_size TEXT NOT NULL DEFAULT 'A4' CHECK (paper_size IN ('A4', '80mm')),
   receipt_footer TEXT NOT NULL DEFAULT '',
   low_stock_default REAL NOT NULL DEFAULT 0 CHECK (low_stock_default >= 0),
+  -- When off (default), QR orders wait for waiter confirmation before the
+  -- kitchen sees them. Managed in settings; never sent by a public request.
+  auto_confirm_public_orders INTEGER NOT NULL DEFAULT 0
+    CHECK (auto_confirm_public_orders IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -187,7 +192,7 @@ CREATE TABLE IF NOT EXISTS orders (
   table_id TEXT NOT NULL REFERENCES tables(id) ON DELETE RESTRICT,
   source TEXT NOT NULL DEFAULT 'waiter' CHECK (source IN ('qr', 'waiter')),
   status TEXT NOT NULL DEFAULT 'new'
-    CHECK (status IN ('new', 'preparing', 'ready', 'served', 'closed')),
+    CHECK (status IN ('pending_confirmation', 'new', 'preparing', 'ready', 'served', 'closed')),
   opened_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
   guest_count INTEGER NOT NULL DEFAULT 0 CHECK (guest_count >= 0),
   notes TEXT NOT NULL DEFAULT '',
@@ -306,6 +311,7 @@ CREATE INDEX IF NOT EXISTS idx_item_variants_item ON item_variants(menu_item_id)
 CREATE INDEX IF NOT EXISTS idx_recipe_items_ingredient ON recipe_items(ingredient_id);
 CREATE INDEX IF NOT EXISTS idx_ingredients_stock_threshold ON ingredients(stock, low_stock_threshold);
 CREATE INDEX IF NOT EXISTS idx_orders_table ON orders(table_id);
+CREATE INDEX IF NOT EXISTS idx_orders_table_status ON orders(table_id, status);
 CREATE INDEX IF NOT EXISTS idx_orders_opened_by ON orders(opened_by);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);

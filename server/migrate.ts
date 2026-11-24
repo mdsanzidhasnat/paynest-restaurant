@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3';
 import { logStage, logWarn } from './log.ts';
 import { getSchemaPath } from './paths.ts';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export const LEGACY_ASSET_PREFIX = '/src/assets/images/';
 const PUBLIC_ASSET_PREFIX = '/images/';
 
@@ -17,6 +17,8 @@ interface Migration {
   version: number;
   description: string;
   up: (db: Database.Database) => void;
+  /** Rebuilding a table referenced by FKs cannot run inside a transaction. */
+  requiresFkOff?: boolean;
 }
 
 /**
@@ -103,6 +105,64 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 4,
+    description: 'public QR orders: pending confirmation and auto-confirm setting',
+    requiresFkOff: true,
+    up: (db) => {
+      if (!hasColumn(db, 'settings', 'auto_confirm_public_orders')) {
+        db.exec(`
+          ALTER TABLE settings ADD COLUMN auto_confirm_public_orders INTEGER NOT NULL DEFAULT 0
+            CHECK (auto_confirm_public_orders IN (0, 1))
+        `);
+      }
+
+      const ordersSql = db
+        .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'orders'")
+        .get() as { sql: string } | undefined;
+      if (ordersSql && !ordersSql.sql.includes('pending_confirmation')) {
+        // SQLite cannot ALTER a CHECK constraint: copy, replace, then rename.
+        // Foreign keys are disabled by runMigrations for this migration only.
+        db.exec(`
+          CREATE TABLE orders_v4 (
+            id TEXT PRIMARY KEY,
+            order_number TEXT NOT NULL UNIQUE,
+            bill_number TEXT UNIQUE,
+            table_id TEXT NOT NULL REFERENCES tables(id) ON DELETE RESTRICT,
+            source TEXT NOT NULL DEFAULT 'waiter' CHECK (source IN ('qr', 'waiter')),
+            status TEXT NOT NULL DEFAULT 'new'
+              CHECK (status IN ('pending_confirmation', 'new', 'preparing', 'ready', 'served', 'closed')),
+            opened_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
+            guest_count INTEGER NOT NULL DEFAULT 0 CHECK (guest_count >= 0),
+            notes TEXT NOT NULL DEFAULT '',
+            subtotal INTEGER NOT NULL DEFAULT 0 CHECK (subtotal >= 0),
+            discount INTEGER NOT NULL DEFAULT 0 CHECK (discount >= 0),
+            vat_amount INTEGER NOT NULL DEFAULT 0 CHECK (vat_amount >= 0),
+            service_charge INTEGER NOT NULL DEFAULT 0 CHECK (service_charge >= 0),
+            total INTEGER NOT NULL DEFAULT 0 CHECK (total >= 0),
+            payment_status TEXT NOT NULL DEFAULT 'unpaid'
+              CHECK (payment_status IN ('unpaid', 'paid', 'void')),
+            payment_method TEXT CHECK (payment_method IN ('Cash', 'bKash', 'Nagad', 'Card')),
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            opened_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            closed_at TEXT,
+            paid_at TEXT,
+            CHECK ((source = 'qr' AND opened_by IS NULL) OR (source = 'waiter' AND opened_by IS NOT NULL))
+          );
+          INSERT INTO orders_v4 SELECT * FROM orders;
+          DROP TABLE orders;
+          ALTER TABLE orders_v4 RENAME TO orders;
+          CREATE INDEX idx_orders_table ON orders(table_id);
+          CREATE INDEX idx_orders_table_status ON orders(table_id, status);
+          CREATE INDEX idx_orders_opened_by ON orders(opened_by);
+          CREATE INDEX idx_orders_status ON orders(status);
+          CREATE INDEX idx_orders_created_at ON orders(created_at);
+        `);
+      } else if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'idx_orders_table_status'").get()) {
+        db.exec('CREATE INDEX idx_orders_table_status ON orders(table_id, status);');
+      }
+    },
+  },
 ];
 
 function hasTable(db: Database.Database, table: string): boolean {
@@ -150,12 +210,27 @@ export function runMigrations(db: Database.Database): number {
   let count = 0;
   for (const migration of MIGRATIONS) {
     if (applied.has(migration.version)) continue;
-    db.transaction(() => {
-      migration.up(db);
-      db.prepare(
-        'INSERT INTO schema_version (version, description) VALUES (?, ?)'
-      ).run(migration.version, migration.description);
-    }).immediate();
+    const record = () =>
+      db.prepare('INSERT INTO schema_version (version, description) VALUES (?, ?)').run(
+        migration.version,
+        migration.description
+      );
+    if (migration.requiresFkOff) {
+      // PRAGMA foreign_keys is a no-op inside a transaction, so FK-sensitive
+      // rebuilds must own their connection briefly outside one.
+      db.pragma('foreign_keys = OFF');
+      try {
+        migration.up(db);
+        record();
+      } finally {
+        db.pragma('foreign_keys = ON');
+      }
+    } else {
+      db.transaction(() => {
+        migration.up(db);
+        record();
+      }).immediate();
+    }
     logStage(`Applied migration ${migration.version}: ${migration.description}`);
     count += 1;
   }

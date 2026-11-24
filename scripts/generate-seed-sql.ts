@@ -74,7 +74,7 @@ lines.push(
 lines.push(
   insert(
     'settings',
-    ['id', 'restaurant_name', 'phone', 'email', 'address', 'currency_symbol', 'vat_percent', 'service_charge_percent', 'invoice_prefix', 'paper_size', 'receipt_footer', 'low_stock_default'],
+    ['id', 'restaurant_name', 'phone', 'email', 'address', 'currency_symbol', 'vat_percent', 'service_charge_percent', 'invoice_prefix', 'paper_size', 'receipt_footer', 'low_stock_default', 'auto_confirm_public_orders'],
     [[
       1,
       RESTAURANT_SETTINGS.restaurantName,
@@ -88,6 +88,7 @@ lines.push(
       RESTAURANT_SETTINGS.paperSize,
       RESTAURANT_SETTINGS.receiptFooter,
       RESTAURANT_SETTINGS.lowStockDefault,
+      0,
     ]]
   )
 );
@@ -248,7 +249,8 @@ lines.push(
 lines.push(`INSERT OR IGNORE INTO schema_version (version, description) VALUES
   (1, 'initial restaurant schema and number sequences'),
   (2, 'bill splits, item status events, table transfers and cancel reason'),
-  (3, 'one stock movement per ingredient per served item');`);
+  (3, 'one stock movement per ingredient per served item'),
+  (4, 'public QR orders: pending confirmation and auto-confirm setting');`);
 lines.push('COMMIT;', '');
 
 const outputPath = new URL('../docs/seed.sql', import.meta.url);

@@ -21,14 +21,21 @@ const settingsInput = z.object({
   paperSize: z.enum(['A4', '80mm']),
   receiptFooter: z.string().trim().default(''),
   lowStockDefault: z.number().nonnegative(),
+  // Optional so legacy settings forms cannot silently disable this flag.
+  autoConfirmPublicOrders: z.boolean().optional(),
 });
 
 function settingsRow(): Row {
   return getDb().prepare('SELECT * FROM settings WHERE id = 1').get() as Row;
 }
 
+function settingsResponse(): Row {
+  const row = settingsRow();
+  return { ...row, autoConfirmPublicOrders: row.auto_confirm_public_orders === 1 };
+}
+
 settingsRouter.get('/', requirePermission('settings:read'), (_req, res) => {
-  res.json(settingsRow());
+  res.json(settingsResponse());
 });
 
 settingsRouter.put('/', requirePermission('settings:write'), (req, res) => {
@@ -40,7 +47,9 @@ settingsRouter.put('/', requirePermission('settings:write'), (req, res) => {
         address = @address, currency_symbol = @currency_symbol, vat_percent = @vat_percent,
         service_charge_percent = @service_charge_percent, invoice_prefix = @invoice_prefix,
         paper_size = @paper_size, receipt_footer = @receipt_footer,
-        low_stock_default = @low_stock_default, updated_at = @updated_at
+        low_stock_default = @low_stock_default,
+        auto_confirm_public_orders = COALESCE(@auto_confirm_public_orders, auto_confirm_public_orders),
+        updated_at = @updated_at
       WHERE id = 1
     `)
     .run({
@@ -55,9 +64,11 @@ settingsRouter.put('/', requirePermission('settings:write'), (req, res) => {
       paper_size: input.paperSize,
       receipt_footer: input.receiptFooter,
       low_stock_default: input.lowStockDefault,
+      auto_confirm_public_orders:
+        input.autoConfirmPublicOrders === undefined ? null : input.autoConfirmPublicOrders ? 1 : 0,
       updated_at: now(),
     });
-  res.json(settingsRow());
+  res.json(settingsResponse());
 });
 
 settingsRouter.get('/invoice', requirePermission('invoice-settings:read'), (_req, res) => {

@@ -138,7 +138,8 @@ tablesRouter.get('/:id/qr', requirePermission('tables:read'), (req, res) => {
     tableNumber: row.number,
     version: row.qr_secret_version,
     token,
-    path: `/q/${token}`,
+    path: `/m/${token}`,
+    url: `/m/${token}`,
   });
 });
 
@@ -157,6 +158,7 @@ tablesRouter.post('/:id/qr/rotate', requirePermission('tables:qr'), (req, res) =
     tableNumber: row.number,
     version: row.qr_secret_version,
     token,
-    path: `/q/${token}`,
+    path: `/m/${token}`,
+    url: `/m/${token}`,
   });
 });

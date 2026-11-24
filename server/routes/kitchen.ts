@@ -30,7 +30,8 @@ kitchenRouter.get('/tickets', requirePermission('kitchen:read'), (req, res) => {
       JOIN tables t ON t.id = o.table_id
       JOIN floors f ON f.id = t.floor_id
       WHERE oi.status IN ('new', 'preparing', 'ready')
-        AND o.status != 'closed' AND o.payment_status = 'unpaid'
+        AND o.status NOT IN ('closed', 'pending_confirmation')
+        AND o.payment_status = 'unpaid'
       ORDER BY oi.created_at ASC
       LIMIT ? OFFSET ?
     `)

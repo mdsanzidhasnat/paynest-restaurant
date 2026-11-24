@@ -6,12 +6,18 @@ import type {
   DuePaymentRecord,
   PaymentMethod,
   Product,
+  PublicCartLine,
+  PublicMenu,
+  PublicOrderResult,
+  PublicOrderStatusResult,
   PurchaseOrder,
   SaleInvoice,
   StaffRole,
+  StaffTable,
   StaffUser,
   StoreSettings,
   Supplier,
+  TableQr,
 } from '../types/pos';
 
 export interface AuthUser {
@@ -81,6 +87,31 @@ function body(data: unknown): RequestInit {
   return { method: 'POST', body: JSON.stringify(data) };
 }
 
+/** Guest calls never touch the staff session or its 401 handler. */
+async function publicRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`/api/public${path}`, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+  });
+  const text = await response.text();
+  let payload: unknown = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = { error: text };
+    }
+  }
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === 'object' && 'error' in payload
+        ? String((payload as { error: unknown }).error)
+        : `Request failed (${response.status})`;
+    throw new ApiError(response.status, message);
+  }
+  return payload as T;
+}
+
 export type ProductInput = Omit<Product, 'id' | 'soldToday' | 'soldThisWeek'>;
 
 export interface SalePayload {
@@ -105,6 +136,12 @@ export const api = {
     request<AuthUser>('/auth/login', body({ email, password })),
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
   me: () => request<AuthUser>('/auth/me'),
+
+  getTables: () => request<StaffTable[]>('/tables'),
+  getTableQr: (tableId: string) =>
+    request<TableQr>(`/tables/${encodeURIComponent(tableId)}/qr`),
+  rotateTableQr: (tableId: string) =>
+    request<TableQr>(`/tables/${encodeURIComponent(tableId)}/qr/rotate`, body({})),
 
   getDashboard: () => request<DashboardData>('/dashboard'),
   getReports: () =>
@@ -202,4 +239,26 @@ export const api = {
     request<StaffUser>(`/users/${encodeURIComponent(id)}/toggle`, { method: 'POST' }),
   deleteUser: (id: string) =>
     request<void>(`/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+};
+
+export const publicApi = {
+  getMenu: (token: string) =>
+    publicRequest<PublicMenu>(`/menu?token=${encodeURIComponent(token)}`),
+  placeOrder: (token: string, items: PublicCartLine[]) =>
+    publicRequest<PublicOrderResult>(
+      '/orders',
+      body({
+        token,
+        items: items.map((line) => ({
+          menuItemId: line.item.id,
+          ...(line.variant ? { variantId: line.variant.id } : {}),
+          quantity: line.quantity,
+          note: line.note,
+        })),
+      })
+    ),
+  getOrderStatus: (token: string, orderId: string) =>
+    publicRequest<PublicOrderStatusResult>(
+      `/orders/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}`
+    ),
 };

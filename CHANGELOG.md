@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- Replaced the retail API with the restaurant backend: nine domain routers (`tables`, `menu`, `orders`, `kitchen`, `billing`, `inventory`, `reports`, `users`, `settings`) mounted by `server/app.ts`. Public QR routes remain for the next phase.
+- Added public QR ordering: signed, expiring, rotatable table tokens; unauthenticated menu/order/status routes with server-owned prices, privacy filtering, IP/table rate limits and JSON content-type enforcement. Guest orders wait in `pending_confirmation` for waiter confirmation unless an admin enables auto-confirm; kitchen, billing, item changes and reports ignore them until then.
+- Added a mobile-first `/m/:token` guest page and a staff **Table QR** screen that renders and prints local QR codes with pinned `qrcode.react`. Updated `docs/api.md`, README and environment docs; added public-route and schema-v4 tests.
+- Replaced the retail API with the restaurant backend: nine domain routers (`tables`, `menu`, `orders`, `kitchen`, `billing`, `inventory`, `reports`, `users`, `settings`) mounted by `server/app.ts`.
 - Added five-role permissions (`admin`, `manager`, `waiter`, `kitchen`, `cashier`), a server-owned order state machine with per-item events and table status recomputation, HMAC-signed table QR tokens with rotation, and a JSON content-type guard for mutating requests.
 - Billing is now fully server-owned: clamped discounts with a cashier cap (`MAX_CASHIER_DISCOUNT_PERCENT`), VAT/service charge from settings, equal/per-item splits, atomic bill numbers, payment coverage checks and automatic table release.
 - Serving an item deducts recipe ingredients in one IMMEDIATE transaction, writes `stock_movements`, and returns `409` with a `lowStock` flag when stock is short.

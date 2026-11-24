@@ -16,7 +16,7 @@ function dashboardData() {
     .prepare('SELECT COALESCE(SUM(sales), 0) AS revenue FROM (SELECT sales FROM daily_sales ORDER BY sales_date DESC LIMIT 7)')
     .get() as { revenue: number };
   const openOrders = db
-    .prepare("SELECT COUNT(*) AS count FROM orders WHERE payment_status = 'unpaid'")
+    .prepare("SELECT COUNT(*) AS count FROM orders WHERE payment_status = 'unpaid' AND status != 'pending_confirmation'")
     .get() as { count: number };
   const occupiedTables = db
     .prepare("SELECT COUNT(*) AS count FROM tables WHERE status IN ('occupied', 'bill_pending')")
@@ -57,8 +57,11 @@ reportsRouter.get('/top-items', requirePermission('reports:read'), (req, res) =>
       .prepare(`
         SELECT mi.id AS menu_item_id, mi.name, SUM(oi.quantity) AS quantity,
           SUM(oi.line_total) AS revenue, COUNT(DISTINCT oi.order_id) AS orders
-        FROM order_items oi JOIN menu_items mi ON mi.id = oi.menu_item_id
+        FROM order_items oi
+        JOIN menu_items mi ON mi.id = oi.menu_item_id
+        JOIN orders o ON o.id = oi.order_id
         WHERE oi.status != 'cancelled'
+          AND o.status != 'pending_confirmation'
         GROUP BY mi.id, mi.name
         ORDER BY quantity DESC, revenue DESC
         LIMIT ? OFFSET ?
@@ -107,8 +110,11 @@ reportsRouter.get('/', requirePermission('reports:read'), (_req, res) => {
     topItems: db
       .prepare(`
         SELECT mi.name, SUM(oi.quantity) AS quantity, SUM(oi.line_total) AS revenue
-        FROM order_items oi JOIN menu_items mi ON mi.id = oi.menu_item_id
+        FROM order_items oi
+        JOIN menu_items mi ON mi.id = oi.menu_item_id
+        JOIN orders o ON o.id = oi.order_id
         WHERE oi.status != 'cancelled'
+          AND o.status != 'pending_confirmation'
         GROUP BY mi.id, mi.name ORDER BY quantity DESC LIMIT 10
       `)
       .all(),

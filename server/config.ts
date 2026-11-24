@@ -43,7 +43,13 @@ export function getMaxCashierDiscountPercent(): number {
   return Number.isFinite(value) && value >= 0 && value <= 100 ? value : 10;
 }
 
-/** Backend-only secret for signed table QR tokens (used by the next public phase). */
+/** Printed QR codes stay valid for this long; rotation invalidates them sooner. */
+export function getQrTokenTtlSeconds(): number {
+  const value = Number(process.env.QR_TOKEN_TTL_SECONDS?.trim() || 365 * 24 * 60 * 60);
+  return Number.isInteger(value) && value > 0 ? value : 365 * 24 * 60 * 60;
+}
+
+/** Backend-only secret for signed table QR tokens (never exposed to the browser). */
 export function getQrTokenSecret(): string {
   const secret = process.env.QR_TOKEN_SECRET?.trim();
   if (process.env.NODE_ENV === 'production') {

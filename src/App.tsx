@@ -38,6 +38,7 @@ import { SalesHistoryView } from './components/views/SalesHistoryView';
 import { InvoicePreviewView } from './components/views/InvoicePreviewView';
 import { ReportsView } from './components/views/ReportsView';
 import { SettingsView } from './components/views/SettingsView';
+import { TableQrView } from './components/views/TableQrView';
 import { LoginView } from './components/views/LoginView';
 
 const EMPTY_SETTINGS: StoreSettings = {
@@ -117,6 +118,7 @@ export default function App() {
     const sections: NavSection[] = [];
     if (can('dashboard:read')) sections.push('dashboard');
     sections.push('pos');
+    if (can('tables:read') || can('tables:qr')) sections.push('table-qr');
     if (can('products:read')) sections.push('products');
     if (can('products:write')) sections.push('add-product');
     if (can('categories:read')) sections.push('categories');
@@ -771,6 +773,8 @@ export default function App() {
               pendingBarcodeScan={pendingBarcodeScan}
             />
           )}
+
+          {activeSection === 'table-qr' && <TableQrView canRotate={can('tables:qr')} />}
 
           {activeSection === 'products' && (
             <ProductsView

@@ -12,7 +12,8 @@ export type NavSection =
   | 'sales-history'
   | 'invoice-preview'
   | 'reports'
-  | 'settings';
+  | 'settings'
+  | 'table-qr';
 
 export type PaymentStatus = 'Paid' | 'Due';
 export type PaymentMethod = 'Cash' | 'bKash' | 'Nagad' | 'Card' | 'Due';
@@ -165,4 +166,84 @@ export interface DuePaymentRecord {
   method: DuePaymentMethod;
   note: string;
   dateTime: string;
+}
+
+/** Public QR ordering types. Prices are INTEGER minor units (paisa). */
+
+export interface PublicVariant {
+  id: string;
+  name: string;
+  price: number;
+}
+
+export interface PublicMenuItem {
+  id: string;
+  name: string;
+  description: string;
+  image: string | null;
+  price: number;
+  variants: PublicVariant[];
+}
+
+export interface PublicCategory {
+  id: string;
+  name: string;
+  description: string;
+  items: PublicMenuItem[];
+}
+
+export interface PublicMenu {
+  restaurantName: string;
+  table: { label: string };
+  categories: PublicCategory[];
+}
+
+export type PublicOrderStatus =
+  | 'pending_confirmation'
+  | 'new'
+  | 'preparing'
+  | 'ready'
+  | 'served'
+  | 'closed';
+
+export interface PublicOrderResult {
+  orderId: string;
+  status: PublicOrderStatus;
+  tableLabel: string;
+}
+
+export interface PublicOrderLineStatus {
+  id: string;
+  name: string;
+  status: 'new' | 'preparing' | 'ready' | 'served' | 'cancelled';
+}
+
+export interface PublicOrderStatusResult extends PublicOrderResult {
+  items: PublicOrderLineStatus[];
+}
+
+export interface PublicCartLine {
+  key: string;
+  item: PublicMenuItem;
+  variant: PublicVariant | null;
+  quantity: number;
+  note: string;
+}
+
+export interface StaffTable {
+  id: string;
+  floor_id: string;
+  number: string;
+  floor_name: string;
+  status: 'free' | 'occupied' | 'bill_pending';
+  qr_secret_version: number;
+}
+
+export interface TableQr {
+  tableId: string;
+  tableNumber: string;
+  version: number;
+  token: string;
+  path: string;
+  url: string;
 }

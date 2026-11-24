@@ -90,6 +90,9 @@ function assertBillable(orderId: string): Row {
   if (order.status === 'closed' || order.payment_status !== 'unpaid') {
     throw new HttpError(409, 'This bill is already closed or void.');
   }
+  if (order.status === 'pending_confirmation') {
+    throw new HttpError(409, 'Confirm this guest order before billing it.');
+  }
   return order;
 }
 

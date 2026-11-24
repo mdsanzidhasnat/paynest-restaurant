@@ -54,6 +54,9 @@ function assertOpenOrder(orderId: string): Row {
   if (order.status === 'closed' || order.payment_status !== 'unpaid') {
     throw new HttpError(409, 'This order is already closed.');
   }
+  if (order.status === 'pending_confirmation') {
+    throw new HttpError(409, 'Confirm this guest order before modifying it.');
+  }
   return order;
 }
 
@@ -72,7 +75,10 @@ ordersRouter.get('/', requirePermission('orders:read'), (req, res) => {
   let sql = 'SELECT * FROM orders';
   const params: unknown[] = [];
   const filters: string[] = [];
-  if (typeof status === 'string' && ['new', 'preparing', 'ready', 'served', 'closed'].includes(status)) {
+  if (
+    typeof status === 'string' &&
+    ['pending_confirmation', 'new', 'preparing', 'ready', 'served', 'closed'].includes(status)
+  ) {
     filters.push('status = ?');
     params.push(status);
   }
@@ -111,6 +117,21 @@ ordersRouter.post('/', requirePermission('orders:write'), (req: AuthRequest, res
   });
   recomputeTableStatus(db, input.tableId);
   res.status(201).json(orderDetail(orderId));
+});
+
+/** Waiter accepts a public order; only then can the kitchen see its items. */
+ordersRouter.post('/:id/confirm', requirePermission('orders:write'), (req, res) => {
+  const db = getDb();
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id) as Row | undefined;
+  if (!order) throw new HttpError(404, 'Order not found.');
+  if (order.status !== 'pending_confirmation') {
+    throw new HttpError(409, 'Only pending guest orders can be confirmed.');
+  }
+  db.transaction(() => {
+    db.prepare("UPDATE orders SET status = 'new' WHERE id = ?").run(order.id);
+    recomputeTableStatus(db, order.table_id);
+  }).immediate();
+  res.json(orderDetail(order.id));
 });
 
 ordersRouter.post('/:id/items', requirePermission('orders:write'), (req, res) => {

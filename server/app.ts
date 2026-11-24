@@ -12,6 +12,7 @@ import { inventoryRouter } from './routes/inventory.ts';
 import { kitchenRouter } from './routes/kitchen.ts';
 import { menuRouter } from './routes/menu.ts';
 import { ordersRouter } from './routes/orders.ts';
+import { publicRouter } from './routes/public.ts';
 import { reportsRouter } from './routes/reports.ts';
 import { settingsRouter } from './routes/settings.ts';
 import { tablesRouter } from './routes/tables.ts';
@@ -49,11 +50,13 @@ export function createApp() {
   app.use(cookieParser());
   app.use('/api', requireJson);
 
-  // Health and login are the only /api endpoints without authentication.
+  // Health, login and the signed-token guest routes are the only
+  // unauthenticated /api endpoints. CORS above still allows the site's origin.
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
   app.use('/api/auth', authRouter);
+  app.use('/api/public', publicRouter);
 
   app.use('/api', requireAuth);
   app.use('/api/tables', tablesRouter);

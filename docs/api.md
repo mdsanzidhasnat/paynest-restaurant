@@ -6,7 +6,7 @@ Every mutating request (`POST`, `PUT`, `PATCH`, `DELETE`) must send `Content-Typ
 
 ## Authentication and authorisation
 
-- `GET /api/health` and the `/api/auth/*` router are the only unauthenticated routes. Every other `/api` route passes through `requireAuth`.
+- `GET /api/health`, the `/api/auth/*` router and the signed-token `/api/public/*` router are the only unauthenticated routes. Every other `/api` route passes through `requireAuth`.
 - `POST /api/auth/login` verifies the email against an active user with `bcrypt.compare`, signs a JWT, and sets the httpOnly `paynest_token` cookie (`sameSite=strict`, `path=/`, `secure` in production). No token is returned in the body.
 - `requireAuth` re-reads the user on each request; tokens for deactivated or deleted users are rejected with `401`, even before expiry.
 - Permission checks use `requirePermission` and role checks use `requireRole`; both run on the server. Frontend permission lists are cosmetic only. The single map is [server/permissions.ts](../server/permissions.ts).
@@ -34,7 +34,7 @@ Errors are returned as `{ "error": "message", ...details }` by [server/middlewar
 | `404` | Record not found |
 | `409` | Invalid state transition, insufficient stock (`lowStock: true`, `ingredientId`), unpaid bill close, unique constraint conflict, foreign key still referenced, or last-active-admin guard |
 | `415` | Mutating request without `Content-Type: application/json` |
-| `429` | Login rate limit (10 attempts per 15 minutes per IP; relaxed under `NODE_ENV=test`) |
+| `429` | Rate limit: login (10 attempts per 15 minutes per IP; relaxed under `NODE_ENV=test`) or public routes (see below) |
 | `500` | Unexpected server error |
 
 Money fields are INTEGER minor units (paisa). Percentages are REAL values in `0..100`. All totals, VAT, service charge, discounts, due amounts and counters are computed by [server/billing.ts](../server/billing.ts) and [server/order-totals.ts](../server/order-totals.ts); clients never send them.
@@ -60,10 +60,29 @@ Money fields are INTEGER minor units (paisa). Percentages are REAL values in `0.
 | `GET` | `/:id` | `tables:read` | — | `200` table |
 | `POST` | `/` | `tables:write` | `{ floorId, number, seats?, x?, y?, shape? }` | `201` table |
 | `PUT` | `/:id` | `tables:write` | Any of the create fields | `200` table |
-| `GET` | `/:id/qr` | `tables:read` | — | `200 { tableId, tableNumber, version, token, path }` |
+| `GET` | `/:id/qr` | `tables:read` | — | `200 { tableId, tableNumber, version, token, path, url }` |
 | `POST` | `/:id/qr/rotate` | `tables:qr` | `{}` | `200` new token with incremented `version` |
 
-`status` and `qr_secret_version` are server-owned; no endpoint accepts them as input. Table status is derived from open orders and bills. The QR token is an HMAC-signed `{tableId, version}` payload; rotating the version invalidates previously issued codes. The public `/q/:token` verification route lands in the next phase.
+`status` and `qr_secret_version` are server-owned; no endpoint accepts them as input. Table status is derived from open orders and bills. `path`/`url` point to `/m/:token`, the guest page. The QR token is an HMAC-SHA256-signed `{ t: tableId, v: version, exp: unixSeconds }` payload; rotating the table version invalidates every previously issued code. See the public routes below.
+
+## Public QR ordering — `/api/public`
+
+These routes are the only unauthenticated API routes besides login and health. They accept a signed table token from the scanned QR code and never expose cost, stock, recipe, staff, other-table or internal table data. Same-origin browser requests are always allowed by the CORS middleware.
+
+| Method | Path | Auth | Body / query | Response |
+|---|---|---|---|---|
+| `GET` | `/menu` | None (signed token, rate limited) | `?token=` | `200 { restaurantName, table: { label }, categories: [{ id, name, description, items: [{ id, name, description, image, price, variants }] }] }` |
+| `POST` | `/orders` | None (signed token, rate limited) | `{ token, items: [{ menuItemId, variantId?, quantity, note? }] }` | `201 { orderId, status, tableLabel }` |
+| `GET` | `/orders/:id` | None (signed token, rate limited) | `?token=` | `200 { orderId, status, tableLabel, items: [{ id, name, status }] }`, or `404` if the order belongs to another table |
+
+Validation and safety rules:
+
+- Only available categories, items and variants are returned; images are local `/images/...` paths. No stock counts, costs, recipes, staff fields or internal table IDs appear in public responses.
+- `quantity` is `1..20`; `note` is at most 140 characters; an order has `1..20` lines and at most 50 total items. Prices and totals sent by a client are ignored: Zod strips unknown fields and the server resolves every unit price from `menu_items`/`item_variants`.
+- Guest orders have `source = 'qr'`, `status = 'pending_confirmation'` and no `opened_by`. They do not occupy the table as active orders, appear on kitchen tickets, enter reports, become billable, or allow item changes until a waiter confirms them. `POST /api/orders/:id/confirm` moves them to `new`.
+- An admin can enable `autoConfirmPublicOrders` in settings; such orders enter `new` directly. This is a staff-only setting and is never sent by a public request.
+- Limits: 60 menu/status reads per minute per IP, 10 orders per minute per IP and 5 orders per minute per table token. Exceeding them returns `429`. Mutating requests still require `Content-Type: application/json` (`415` otherwise).
+- Tokens are HMAC-SHA256 over a base64url payload containing the table id, current `qr_secret_version` and an expiry (`QR_TOKEN_TTL_SECONDS`, default one year). Verification uses a constant-time comparison and checks the current table version; tampered, expired and rotated tokens return `401`.
 
 ## Menu — `/api/menu`
 
@@ -93,6 +112,7 @@ Money fields are INTEGER minor units (paisa). Percentages are REAL values in `0.
 | `GET` | `/` | `orders:read` | `?status=&tableId=` | `200` orders |
 | `GET` | `/:id` | `orders:read` | — | `200` order with `items`, `payments`, `splits` |
 | `POST` | `/` | `orders:write` | `{ tableId, guestCount?, notes? }` | `201` order; `order_number` allocated atomically |
+| `POST` | `/:id/confirm` | `orders:write` | `{}` | `200` guest order moved from `pending_confirmation` to `new` |
 | `POST` | `/:id/items` | `orders:write` | `{ menuItemId, variantId?, quantity, notes? }` | `201` order with server price snapshots |
 | `PATCH` | `/items/:itemId/notes` | `orders:write` | `{ notes }` | `200` order |
 | `DELETE` | `/items/:itemId` | `orders:write` | — | `200` order; only `new` items can be removed |
@@ -101,11 +121,11 @@ Money fields are INTEGER minor units (paisa). Percentages are REAL values in `0.
 | `POST` | `/:id/items/:itemId/cancel` | `orders:cancel` | `{ reason }` | `200` order |
 | `POST` | `/:id/items/:itemId/serve` | `orders:serve` | `{}` | `200 { item, lowStock, orderStatus, order }` |
 
-Adding an item snapshots the menu name, variant name and unit price into `order_items`; later menu edits never change an existing order. Every item mutation recomputes stored totals from those snapshots. Starting an order on an occupied table, or transferring to a non-free table, returns `409`. Cancelling requires a non-empty reason and is limited to admin/manager.
+Adding an item snapshots the menu name, variant name and unit price into `order_items`; later menu edits never change an existing order. Every item mutation recomputes stored totals from those snapshots. Starting an order on an occupied table, or transferring to a non-free table, returns `409`. Cancelling requires a non-empty reason and is limited to admin/manager. Guest orders in `pending_confirmation` reject item changes, status transitions and billing with `409` until `POST /:id/confirm` accepts them.
 
 ### Item state machine
 
-`new → preparing → ready → served`. Invalid forward moves (for example `new → ready`) return `409`. `ready → served` is performed by `POST /api/orders/:id/items/:itemId/serve` and deducts recipe ingredients in the same IMMEDIATE transaction. Backward moves require `orders:override` (admin/manager) and return `403` for kitchen staff. Serving with insufficient stock returns `409` with `{ lowStock: true, ingredientId }` and rolls back the whole transition.
+Orders created by a waiter start at `new`; public QR orders start at `pending_confirmation` until confirmed. `new → preparing → ready → served`. Invalid forward moves (for example `new → ready`) return `409`. `ready → served` is performed by `POST /api/orders/:id/items/:itemId/serve` and deducts recipe ingredients in the same IMMEDIATE transaction. Backward moves require `orders:override` (admin/manager) and return `403` for kitchen staff. Serving with insufficient stock returns `409` with `{ lowStock: true, ingredientId }` and rolls back the whole transition.
 
 ## Kitchen — `/api/kitchen`
 
@@ -115,7 +135,7 @@ Adding an item snapshots the menu name, variant name and unit price into `order_
 | `GET` | `/orders/:id` | `kitchen:read` | — | `200` order with items and status events |
 | `PATCH` | `/items/:id/status` | `kitchen:transition` | `{ status: 'new'\|'preparing'\|'ready' }` | `200 { item, lowStock, orderStatus }` |
 
-Backward transitions require `orders:override`. The kitchen cannot mark items served; that belongs to the waiter/order flow above. Every transition writes an `order_item_events` row for timers and audit.
+Backward transitions require `orders:override`. The kitchen cannot mark items served; that belongs to the waiter/order flow above. Tickets exclude `pending_confirmation` orders and every transition on them is rejected with `409`. Every transition writes an `order_item_events` row for timers and audit.
 
 ## Billing — `/api/bills`
 
@@ -130,7 +150,7 @@ Backward transitions require `orders:override`. The kitchen cannot mark items se
 | `POST` | `/orders/:orderId/void` | `bills:void` | `{}` | `200` void bill and freed table |
 | `GET` | `/orders/:orderId/invoice` | `bills:read` | — | `200 { invoiceNumber, issuedAt, ...bill }` |
 
-`method` is one of `Cash`, `bKash`, `Nagad`, `Card` and is a recorded selection only — no gateway or messaging integration. Discounts are resolved on the server, clamped to `0..subtotal`, and further capped for cashiers by `MAX_CASHIER_DISCOUNT_PERCENT`. `equal` splits use integer minor units with the remainder on the last split; `items` splits distribute proportionally to line totals with the rounding drift on the last split. `closeIfPaid` sets `payment_status: paid`, `status: closed` and frees the table via the shared table-status recomputation.
+`method` is one of `Cash`, `bKash`, `Nagad`, `Card` and is a recorded selection only — no gateway or messaging integration. Guest orders still in `pending_confirmation` cannot be billed (`409`). Discounts are resolved on the server, clamped to `0..subtotal`, and further capped for cashiers by `MAX_CASHIER_DISCOUNT_PERCENT`. `equal` splits use integer minor units with the remainder on the last split; `items` splits distribute proportionally to line totals with the rounding drift on the last split. `closeIfPaid` sets `payment_status: paid`, `status: closed` and frees the table via the shared table-status recomputation.
 
 ## Inventory — `/api/inventory`
 
@@ -151,7 +171,7 @@ Recipes are per menu item, not per variant. Stock below zero is rejected with `4
 
 ## Reports — `/api/reports`
 
-Every report requires `reports:read` (admin and manager) and uses indexed queries with `ORDER BY ... LIMIT ? OFFSET ?`.
+Every report requires `reports:read` (admin and manager) and uses indexed queries with `ORDER BY ... LIMIT ? OFFSET ?`. Unconfirmed guest orders are excluded from open-order counts and item rankings.
 
 | Method | Path | Response |
 |---|---|---|
@@ -181,8 +201,8 @@ Guards: an admin cannot change their own role, deactivate themselves, or delete 
 
 | Method | Path | Permission | Body | Response |
 |---|---|---|---|---|
-| `GET` | `/` | `settings:read` | — | `200` single settings row |
-| `PUT` | `/` | `settings:write` | `{ restaurantName, phone?, email?, address?, currencySymbol, vatPercent, serviceChargePercent, invoicePrefix, paperSize, receiptFooter?, lowStockDefault }` | `200` updated settings |
+| `GET` | `/` | `settings:read` | — | `200` single settings row plus `autoConfirmPublicOrders` boolean |
+| `PUT` | `/` | `settings:write` | `{ restaurantName, phone?, email?, address?, currencySymbol, vatPercent, serviceChargePercent, invoicePrefix, paperSize, receiptFooter?, lowStockDefault, autoConfirmPublicOrders? }` | `200` updated settings |
 | `GET` | `/invoice` | `invoice-settings:read` (all roles) | — | `200` branded subset for receipt rendering |
 
-VAT and service-charge percentages come from this singleton row and are applied by the server when computing bills; no client request may override them.
+VAT and service-charge percentages come from this singleton row and are applied by the server when computing bills; no client request may override them. `autoConfirmPublicOrders` is optional on `PUT` (omitting it leaves the flag unchanged) and is admin-only, like all settings writes. When enabled, public QR orders skip waiter confirmation and enter the kitchen queue as `new`.

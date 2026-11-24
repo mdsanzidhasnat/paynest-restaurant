@@ -18,13 +18,18 @@ This repository is being converted from the old retail POS into a restaurant man
   send totals or counters. Money is stored as INTEGER minor units (paisa); percentages are REAL
   0..100. The auth cookie uses `sameSite: 'strict'`.
 - Backend API phase implemented: nine domain routers under `server/routes/` for tables, menu,
-  orders, kitchen, billing, inventory, reports, users and settings. Public QR ordering routes are
-  intentionally deferred to the next phase; authenticated QR issue/rotation already exists.
+  orders, kitchen, billing, inventory, reports, users and settings. The unauthenticated
+  `server/routes/public.ts` router adds signed QR menu/order/status routes, mounted before
+  `requireAuth`; login, health and these public routes are the only unauthenticated `/api` paths.
+  Guest orders start in `pending_confirmation` and are excluded from kitchen/billing/reports until
+  a waiter confirms them. `/m/:token` is the separate mobile guest page; `table-qr` is the staff
+  screen. `QR_TOKEN_TTL_SECONDS` controls printed-code lifetime; no `VITE_*` secret is used.
 - Database phase implemented deviations: money is INTEGER minor units, recipe quantities are per
   menu item (not per variant), `orders` owns bill numbers and totals while `payments` records only
   the selected method and amount, and `schema_version`/`number_sequences` support migrations and
-  atomic numbering. Number allocation and row insertion use separate IMMEDIATE transactions on
-  UNIQUE retry: gaps are possible, duplicates never are.
+  atomic numbering. Schema v4 adds `settings.auto_confirm_public_orders`, the
+  `pending_confirmation` order status and `idx_orders_table_status`. Number allocation and row
+  insertion use separate IMMEDIATE transactions on UNIQUE retry: gaps are possible, duplicates never are.
 - Until the conversion is complete, the repository-specific rules below remain in force where they
   do not conflict with the plan; where they conflict, `docs/PLAN.md` and this note take precedence.
 

@@ -41,6 +41,8 @@ export function recomputeOrderStatus(db: Database.Database, orderId: string): st
     | undefined;
   if (!order) return 'closed';
   if (order.payment_status === 'paid' || order.status === 'closed') return 'closed';
+  // Never auto-activate a guest order that is still awaiting staff confirmation.
+  if (order.status === 'pending_confirmation') return 'pending_confirmation';
 
   const rows = db
     .prepare("SELECT status FROM order_items WHERE order_id = ? AND status != 'cancelled'")
@@ -62,7 +64,8 @@ export function recomputeTableStatus(db: Database.Database, tableId: string): vo
     .prepare(`
       SELECT
         MAX(CASE WHEN payment_status = 'unpaid' AND bill_number IS NOT NULL THEN 1 ELSE 0 END) AS billing,
-        MAX(CASE WHEN payment_status = 'unpaid' AND bill_number IS NULL THEN 1 ELSE 0 END) AS occupied
+        MAX(CASE WHEN payment_status = 'unpaid' AND bill_number IS NULL
+          AND status != 'pending_confirmation' THEN 1 ELSE 0 END) AS occupied
       FROM orders WHERE table_id = ?
     `)
     .get(tableId) as { billing: number; occupied: number } | undefined;
@@ -134,6 +137,15 @@ export function transitionItem(
       | (OrderItemRow & Record<string, unknown>)
       | undefined;
     if (!item) throw new HttpError(404, 'Order item not found.');
+
+    // A guest order is invisible to the kitchen until a waiter accepts it;
+    // block every item transition (including serves) before confirmation.
+    const order = db.prepare('SELECT status FROM orders WHERE id = ?').get(item.order_id) as
+      | { status: string }
+      | undefined;
+    if (order?.status === 'pending_confirmation') {
+      throw new HttpError(409, 'Confirm this guest order before changing item status.');
+    }
 
     const from = item.status as ItemStatus;
     const isForward = FORWARD[from].includes(toStatus);

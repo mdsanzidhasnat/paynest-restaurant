@@ -15,6 +15,7 @@ import {
   Store,
   PanelLeftClose,
   PanelLeftOpen,
+  QrCode,
   X,
 } from 'lucide-react';
 import { NavSection } from '../../types/pos';
@@ -50,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'pos', label: 'New Sale (POS)', icon: ShoppingCart },
+    { id: 'table-qr', label: 'Table QR', icon: QrCode },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'categories', label: 'Categories', icon: Tags },
     {

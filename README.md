@@ -3,9 +3,8 @@
 Restaurant Management System is a table-service POS in progress: floor/table management, QR menu
 ordering, waiter orders, a kitchen display, server-computed billing, ingredient stock and reports.
 It pairs a React 19 / TypeScript front end with an Express API and SQLite persistence. The
-database layer and the authenticated backend API are complete; UI screens are being replaced from
-the legacy retail app in phases described in `docs/PLAN.md`. Public QR ordering routes are the next
-backend phase.
+database layer, the authenticated backend API and public QR ordering are complete; remaining UI
+screens are being replaced from the legacy retail app in phases described in `docs/PLAN.md`.
 
 **Live demo:** [Paste your live demo URL here] — replace this placeholder with your deployed URL before publishing.
 
@@ -30,12 +29,13 @@ See [HowToSetup.md](./HowToSetup.md#demo-users) for the password used by your ow
 > Conversion status: the restaurant database and all authenticated backend endpoints are
 > implemented and documented in [docs/api.md](./docs/api.md). The legacy retail screens listed
 > below are still present in the frontend and are being replaced phase by phase; see
-> `docs/PLAN.md`. Public QR menu/ordering is the next backend phase.
+> `docs/PLAN.md`. Public QR menu/ordering and the guest page are now live.
 
 New restaurant backend (live):
 
 - **Real sign-in and five roles** — bcrypt, JWT in an httpOnly `SameSite=Strict` cookie, and server-side permission checks for `admin`, `manager`, `waiter`, `kitchen` and `cashier`. See [auth.ts](./server/routes/auth.ts), [permissions.ts](./server/permissions.ts), and [middleware.ts](./server/middleware.ts).
-- **Tables and QR tokens** — floors, table map with server-owned status, and HMAC-signed table tokens with rotation. See [tables.ts](./server/routes/tables.ts) and [qr-token.ts](./server/qr-token.ts).
+- **Tables and QR tokens** — floors, table map with server-owned status, and expiring HMAC-signed table tokens with per-table rotation. See [tables.ts](./server/routes/tables.ts) and [qr-token.ts](./server/qr-token.ts).
+- **Public QR menu and ordering** — a mobile-first `/m/:token` guest page with no staff navigation, a staff QR print page, and signed unauthenticated API routes. Guests see only available menu data; the server recomputes all prices and rate-limits requests. Orders start as `pending_confirmation` until a waiter confirms them, unless an admin enables auto-confirm. See [public.ts](./server/routes/public.ts) and [CustomerMenuPage.tsx](./src/components/customer/CustomerMenuPage.tsx).
 - **Waiter orders and kitchen display** — atomic order numbers, price snapshots, transfers, cancellation with reason, and a `new → preparing → ready → served` state machine with per-item events. See [orders.ts](./server/routes/orders.ts), [kitchen.ts](./server/routes/kitchen.ts), and [order-state.ts](./server/order-state.ts).
 - **Billing** — server-only subtotals, clamped discounts (cashier cap via `MAX_CASHIER_DISCOUNT_PERCENT`), VAT/service charge from settings, equal/per-item splits, payment method selection only, and automatic table release when payments cover the total. See [billing.ts](./server/routes/billing.ts) and [billing.ts](./server/billing.ts).
 - **Menu and ingredients** — categories, items, variants, price permissions, availability toggle, per-item recipes, stock ledger, automatic deduction on serve, and low-stock reports. See [menu.ts](./server/routes/menu.ts) and [inventory.ts](./server/routes/inventory.ts).
@@ -47,7 +47,7 @@ The login screen includes a “Forgot password?” form, but it only shows a loc
 
 ## Tech stack
 
-- **Frontend:** React 19, TypeScript 7, Vite 8, Tailwind CSS 4, Lucide icons.
+- **Frontend:** React 19, TypeScript 7, Vite 8, Tailwind CSS 4, Lucide icons, `qrcode.react` (pinned) for local QR rendering.
 - **Backend:** Express 4, `better-sqlite3`, bcrypt, `jsonwebtoken`, Helmet, CORS, cookie-parser, `express-rate-limit`, Zod, and dotenv; bundled with esbuild for production and run with plain Node. `tsx` is development-only.
 - **Tests:** Vitest 4, Testing Library, jsdom, and Supertest.
 - **Runtime:** Node `>=20.19.0` and npm `>=10`; see [.nvmrc](./.nvmrc) and [package.json](./package.json).
@@ -60,7 +60,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open `http://localhost:3000`. The API listens on `http://localhost:3001` by default and Vite proxies `/api` to it. See [HowToSetup.md](./HowToSetup.md) for production, seeding, deployment, and troubleshooting.
+Open `http://localhost:3000` for the staff app. Use **Table QR** in the sidebar to generate and print a table code; scanning it opens the guest page at `/m/:token`. The API listens on `http://localhost:3001` by default and Vite proxies `/api` to it. See [HowToSetup.md](./HowToSetup.md) for production, seeding, deployment, and troubleshooting.
 
 ## Screenshots
 
@@ -99,7 +99,7 @@ SQLite is used through [server/db.ts](./server/db.ts). The schema in [docs/schem
 | Table | Key columns | Foreign keys | Indexes | Delete rule |
 |---|---|---|---|---|
 | `users` | `id`, `email` (unique), `role`, `password_hash` | — | `UNIQUE(email)`, `idx_users_role_active` | — |
-| `settings` | `id = 1`, `restaurant_name`, `vat_percent`, `service_charge_percent`, `currency_symbol` | — | `PRIMARY KEY(id)` | — |
+| `settings` | `id = 1`, `restaurant_name`, `vat_percent`, `service_charge_percent`, `currency_symbol`, `auto_confirm_public_orders` | — | `PRIMARY KEY(id)` | — |
 | `floors` | `id`, `name` (unique), `sort_order` | — | `UNIQUE(name)`, `idx_floors_sort_order` | — |
 | `tables` | `id`, `number`, `status`, `qr_secret_version` | `floor_id → floors` | `UNIQUE(floor_id, number)`, `idx_tables_floor`, `idx_tables_status` | `RESTRICT` |
 | `menu_categories` | `id`, `name` (unique), `sort_order` | — | `UNIQUE(name)`, `idx_menu_categories_sort_order` | — |
@@ -107,7 +107,7 @@ SQLite is used through [server/db.ts](./server/db.ts). The schema in [docs/schem
 | `item_variants` | `id`, `name`, `price` | `menu_item_id → menu_items` | `UNIQUE(menu_item_id, name)`, `idx_item_variants_item` | `CASCADE` |
 | `ingredients` | `id`, `name` (unique), `unit`, `stock`, `low_stock_threshold` | — | `UNIQUE(name)`, `idx_ingredients_stock_threshold` | — |
 | `recipe_items` | `menu_item_id`, `ingredient_id`, `quantity` | `menu_item_id → menu_items`, `ingredient_id → ingredients` | composite PK, `idx_recipe_items_ingredient` | `CASCADE` / `RESTRICT` |
-| `orders` | `id`, `order_number`, `bill_number`, `status`, totals, `payment_status`, `created_at` | `table_id → tables`, `opened_by → users` | both numbers unique, `idx_orders_table`, `idx_orders_opened_by`, `idx_orders_status`, `idx_orders_created_at` | `RESTRICT` |
+| `orders` | `id`, `order_number`, `bill_number`, `source`, `status` (including `pending_confirmation`), totals, `payment_status`, `created_at` | `table_id → tables`, `opened_by → users` | both numbers unique, `idx_orders_table`, `idx_orders_table_status`, `idx_orders_opened_by`, `idx_orders_status`, `idx_orders_created_at` | `RESTRICT` |
 | `order_items` | `id`, `quantity`, `notes`, `status`, price snapshots | `order_id → orders`, `menu_item_id → menu_items`, `variant_id → item_variants` | `idx_order_items_order`, `idx_order_items_menu_item`, `idx_order_items_variant`, `idx_order_items_status` | `CASCADE` / `RESTRICT` |
 | `payments` | `id`, `method`, `amount` | `order_id → orders`, `recorded_by → users` | `idx_payments_order` | `RESTRICT` |
 | `bill_splits` | `id`, `label`, `amount`, `method`, `paid_at` | `order_id → orders` | `UNIQUE(order_id, label)`, `idx_bill_splits_order` | `RESTRICT` |
@@ -150,6 +150,7 @@ Only backend and build-time variables are used; no `VITE_*` variables are read. 
 | `SEED_DEMO_DATA` | Create the five demo users, floors, tables, menu and sample orders when the `users` table is empty | `false`; set to `true` for a local demo |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` … `CASHIER_EMAIL` / `CASHIER_PASSWORD` | Demo credentials for all five roles; missing passwords are generated and logged once | Placeholders in `.env.example` only |
 | `QR_TOKEN_SECRET` | Backend-only HMAC secret for signed table QR tokens | Development fallback; production refuses to start if unset or shorter than 32 characters |
+| `QR_TOKEN_TTL_SECONDS` | Lifetime of printed QR tokens in seconds | `31536000` (one year); invalid values fall back to the default. Rotation invalidates sooner |
 | `MAX_CASHIER_DISCOUNT_PERCENT` | Maximum discount a cashier may apply to a bill subtotal | `10`; invalid values fall back to `10` |
 
 ## Docker
