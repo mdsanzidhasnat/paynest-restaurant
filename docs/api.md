@@ -2,6 +2,8 @@
 
 All routes are mounted by [server/app.ts](../server/app.ts). Requests and responses use JSON. The browser client calls relative `/api` URLs with same-origin credentials (`src/api/client.ts`); there is no separate API host in production.
 
+The React staff screens in [src/components/views/](../src/components/views/) use this API through the typed client in [src/api/client.ts](../src/api/client.ts). A `401` clears the local session and a `403` shows a friendly permission banner; roles land on their primary screen (admin/manager dashboard, waiter tables, kitchen display, cashier billing). Screens format server-owned money with [src/utils/money.ts](../src/utils/money.ts) and never send totals or counters.
+
 Every mutating request (`POST`, `PUT`, `PATCH`, `DELETE`) must send `Content-Type: application/json` or it is rejected with `415`. List endpoints accept `limit` (default `1000`, maximum `5000`) and `offset` (default `0`); invalid values return `400`.
 
 ## Authentication and authorisation

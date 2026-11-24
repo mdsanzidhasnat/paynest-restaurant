@@ -8,7 +8,7 @@ import {
   PublicOrderStatus,
   PublicOrderStatusResult,
 } from '../../types/pos';
-import { formatBDT } from '../../utils/format';
+import { formatMoney } from '../../utils/money';
 
 interface CustomerMenuPageProps {
   token: string;
@@ -32,7 +32,7 @@ function unitPrice(line: PublicCartLine): number {
 }
 
 function money(minorUnits: number): string {
-  return formatBDT(minorUnits / 100);
+  return formatMoney(minorUnits);
 }
 
 export function CustomerMenuPage({ token }: CustomerMenuPageProps) {

@@ -4,6 +4,11 @@
  * a discount amount are inputs, and every value is validated and clamped here.
  */
 
+import { roundMinorUnits, splitEqually } from '../src/utils/money.ts';
+
+// Re-exported so existing server imports keep a single authoritative source.
+export { roundMinorUnits, splitEqually } from '../src/utils/money.ts';
+
 export interface BillableLine {
   quantity: number;
   unitPrice: number;
@@ -55,11 +60,6 @@ function assertPercent(value: unknown, label: string): number {
   return value;
 }
 
-/** Rounds half-up to the nearest minor unit, avoiding float drift. */
-export function roundMinorUnits(value: number): number {
-  return Math.floor(value + 0.5);
-}
-
 /** Sums price snapshots into a subtotal; rejects client-style money values. */
 export function calculateSubtotal(lines: readonly BillableLine[]): number {
   return calculateOrderTotals(lines, 0, { vatPercent: 0, serviceChargePercent: 0 }).subtotal;
@@ -102,18 +102,6 @@ export function calculateBill(
   const subtotal = calculateSubtotal(lines);
   const amount = resolveDiscountAmount(subtotal, discount, maxDiscountPercent);
   return calculateOrderTotals(lines, amount, settings);
-}
-
-/** Splits a total into `parts` whole minor units; the remainder goes to the last part. */
-export function splitEqually(total: number, parts: number): number[] {
-  assertMinorUnits(total, 'Total');
-  if (!Number.isInteger(parts) || parts < 1 || parts > 100) {
-    throw new Error('Split parts must be an integer between 1 and 100.');
-  }
-  const base = Math.floor(total / parts);
-  const result = Array.from({ length: parts }, () => base);
-  result[parts - 1] += total - base * parts;
-  return result;
 }
 
 /**

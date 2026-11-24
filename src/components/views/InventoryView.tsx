@@ -1,476 +1,319 @@
-import React, { useState } from 'react';
-import {
-  Package,
-  Banknote,
-  AlertTriangle,
-  PackageX,
-  PackagePlus,
-  Search,
-  CheckCircle2,
-  X,
-} from 'lucide-react';
-import { Product } from '../../types/pos';
-import { formatBDT } from '../../utils/format';
-import { ProductThumb } from '../common/ProductThumb';
+import { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, PackagePlus } from 'lucide-react';
+import { api } from '../../api/client';
+import { EmptyState, ErrorState, LoadingState } from '../common/AsyncState';
+import { StatusBadge } from '../common/StatusBadge';
+import type { Ingredient, MenuItem, RecipeLine, StockMovement } from '../../types/pos';
 
 interface InventoryViewProps {
-  products: Product[];
-  onRestock: (productId: string, addQty: number) => void;
-  canRestock?: boolean;
+  canWrite: boolean;
+  canEditRecipes: boolean;
 }
 
-type InventoryFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stock';
+export function InventoryView({ canWrite, canEditRecipes }: InventoryViewProps) {
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [stockAmount, setStockAmount] = useState('');
+  const [stockNote, setStockNote] = useState('');
+  const [recipeItemId, setRecipeItemId] = useState('');
+  const [recipeLines, setRecipeLines] = useState<RecipeLine[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-export const InventoryView: React.FC<InventoryViewProps> = ({ products, onRestock, canRestock = true }) => {
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<InventoryFilter>('all');
-  const [restockTarget, setRestockTarget] = useState<Product | null>(null);
-  const [restockQty, setRestockQty] = useState<string>('20');
-  const [restockNotice, setRestockNotice] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [ingredientRows, movementRows] = await Promise.all([
+        api.getIngredients(),
+        api.getStockMovements(),
+      ]);
+      setIngredients(ingredientRows);
+      setMovements(movementRows.slice(0, 10));
+      setSelectedId((current) => current || ingredientRows[0]?.id || '');
+      if (canEditRecipes) {
+        const items = await api.getMenuItems();
+        setMenuItems(items);
+        setRecipeItemId((current) => current || items[0]?.id || '');
+      }
+    } catch {
+      setError('Unable to load inventory.');
+    } finally {
+      setLoading(false);
+    }
+  }, [canEditRecipes]);
 
-  const totalProducts = products.length;
-  const totalStockValue = products.reduce((sum, p) => sum + p.stock * p.costPrice, 0);
-  const lowStockItems = products.filter((p) => p.stock > 0 && p.stock <= p.lowStockThreshold);
-  const outOfStockItems = products.filter((p) => p.stock <= 0);
-  const alertItems = [...outOfStockItems, ...lowStockItems];
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const showNotice = (msg: string) => {
-    setRestockNotice(msg);
-    setTimeout(() => {
-      setRestockNotice((curr) => (curr === msg ? null : curr));
-    }, 3000);
-  };
+  useEffect(() => {
+    if (!recipeItemId) {
+      setRecipeLines([]);
+      return;
+    }
+    let active = true;
+    api
+      .getRecipe(recipeItemId)
+      .then((lines) => {
+        if (active) setRecipeLines(lines);
+      })
+      .catch(() => {
+        if (active) setRecipeLines([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [recipeItemId]);
 
-  const openRestockModal = (product: Product) => {
-    setRestockTarget(product);
-    setRestockQty(product.stock <= 0 ? '25' : '15');
-  };
+  const selected = ingredients.find((item) => item.id === selectedId) ?? null;
 
-  const handleConfirmRestock = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!restockTarget) return;
-    const qty = Math.max(Number(restockQty) || 0, 1);
-    onRestock(restockTarget.id, qty);
-    showNotice(`Restocked +${qty} units of ${restockTarget.name}`);
-    setRestockTarget(null);
-  };
+  async function restock() {
+    if (!selected || !canWrite || busy) return;
+    const quantity = Number(stockAmount);
+    if (!Number.isFinite(quantity) || quantity === 0) {
+      setError('Enter a non-zero quantity (use a negative number to use stock).');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await api.adjustStock(selected.id, quantity, stockNote.trim());
+      setStockAmount('');
+      setStockNote('');
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to adjust stock.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
-  const filteredProducts = products.filter((p) => {
-    const matchesFilter =
-      filter === 'all'
-        ? true
-        : filter === 'in-stock'
-          ? p.stock > p.lowStockThreshold
-          : filter === 'low-stock'
-            ? p.stock > 0 && p.stock <= p.lowStockThreshold
-            : p.stock <= 0;
+  async function saveRecipe() {
+    if (!recipeItemId || !canEditRecipes || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.saveRecipe(
+        recipeItemId,
+        recipeLines.map((line) => ({ ingredientId: line.ingredientId, quantity: line.quantity }))
+      );
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to save the recipe.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
-    const q = search.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      p.name.toLowerCase().includes(q) ||
-      p.sku.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q);
+  function updateRecipeLine(ingredientId: string, quantity: number) {
+    setRecipeLines((previous) =>
+      previous.map((line) =>
+        line.ingredientId === ingredientId ? { ...line, quantity } : line
+      )
+    );
+  }
 
-    return matchesFilter && matchesSearch;
-  });
+  function addRecipeLine() {
+    const available = ingredients.find(
+      (item) => !recipeLines.some((line) => line.ingredientId === item.id)
+    );
+    if (!available) return;
+    setRecipeLines((previous) => [
+      ...previous,
+      {
+        menuItemId: recipeItemId,
+        ingredientId: available.id,
+        ingredientName: available.name,
+        unit: available.unit,
+        quantity: 1,
+        stock: available.stock,
+        lowStockThreshold: available.lowStockThreshold,
+      },
+    ]);
+  }
+
+  if (loading) return <LoadingState label="Loading ingredients…" />;
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#111827]">Inventory</h1>
-          <p className="text-[13.5px] text-[#4B5563] mt-0.5">
-            Real-time stock health, reorder alerts, and shelf replenishment
-          </p>
-        </div>
-
-        {restockNotice && (
-          <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-[10px] bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46] text-[13px] font-medium">
-            <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-            <span>{restockNotice}</span>
-          </div>
-        )}
+      <div>
+        <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#111827]">Ingredient inventory</h1>
+        <p className="mt-1 text-[13px] text-[#6B7280]">
+          Track stock, restock ingredients and edit per-item recipes.
+        </p>
       </div>
 
-      {/* Top Row: 4 Stat Cards (Total Products, Stock Value, Low Stock, Out of Stock) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <div className="pos-card p-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[13px] font-medium text-[#4B5563]">Total Products</p>
-            <p className="text-[26px] font-bold tracking-[-0.02em] text-[#111827] tabular-nums mt-1.5 leading-tight">
-              {totalProducts}
-            </p>
-            <p className="text-[12.5px] text-[#9CA3AF] mt-2 tabular-nums">
-              {products.reduce((s, p) => s + p.stock, 0).toLocaleString('en-US')} total units
-            </p>
-          </div>
-          <div className="w-11 h-11 rounded-[10px] bg-[#EEF2FF] text-[#4F46E5] flex items-center justify-center shrink-0">
-            <Package className="w-5 h-5 stroke-[1.75]" />
-          </div>
-        </div>
+      {error && <ErrorState message={error} />}
 
-        <div className="pos-card p-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[13px] font-medium text-[#4B5563]">Stock Value</p>
-            <p className="text-[26px] font-bold tracking-[-0.02em] text-[#111827] tabular-nums mt-1.5 leading-tight">
-              {formatBDT(totalStockValue)}
-            </p>
-            <p className="text-[12.5px] text-[#9CA3AF] mt-2">At purchase cost</p>
-          </div>
-          <div className="w-11 h-11 rounded-[10px] bg-[#ECFDF5] text-[#10B981] flex items-center justify-center shrink-0">
-            <Banknote className="w-5 h-5 stroke-[1.75]" />
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setFilter('low-stock')}
-          className="pos-card p-5 flex items-start justify-between gap-4 text-left hover:border-[#F59E0B]/60 transition-colors"
-        >
-          <div>
-            <p className="text-[13px] font-medium text-[#4B5563]">Low Stock</p>
-            <p className="text-[26px] font-bold tracking-[-0.02em] text-[#D97706] tabular-nums mt-1.5 leading-tight">
-              {lowStockItems.length}
-            </p>
-            <p className="text-[12.5px] text-[#9CA3AF] mt-2">Below alert threshold</p>
-          </div>
-          <div className="w-11 h-11 rounded-[10px] bg-[#FFFBEB] text-[#F59E0B] flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5 stroke-[1.75]" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setFilter('out-of-stock')}
-          className="pos-card p-5 flex items-start justify-between gap-4 text-left hover:border-[#EF4444]/60 transition-colors"
-        >
-          <div>
-            <p className="text-[13px] font-medium text-[#4B5563]">Out of Stock</p>
-            <p className="text-[26px] font-bold tracking-[-0.02em] text-[#EF4444] tabular-nums mt-1.5 leading-tight">
-              {outOfStockItems.length}
-            </p>
-            <p className="text-[12.5px] text-[#EF4444] mt-2 font-medium">
-              {outOfStockItems.length > 0 ? 'Immediate reorder' : 'None depleted'}
-            </p>
-          </div>
-          <div className="w-11 h-11 rounded-[10px] bg-[#FEF2F2] text-[#EF4444] flex items-center justify-center shrink-0">
-            <PackageX className="w-5 h-5 stroke-[1.75]" />
-          </div>
-        </button>
-      </div>
-
-      {/* Highlighted "Low Stock Alerts" Card with Amber Warning Rows */}
-      {alertItems.length > 0 && (
-        <div className="bg-white border border-[#F59E0B]/45 rounded-[12px] shadow-xs overflow-hidden">
-          <div className="px-6 py-4 bg-[#FFFBEB] border-b border-[#FDE68A] flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[8px] bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-4 h-4 stroke-[2]" />
-              </div>
-              <div>
-                <h2 className="text-[15.5px] font-semibold text-[#92400E]">
-                  Low Stock Alerts
-                </h2>
-                <p className="text-[12.5px] text-[#B45309] tabular-nums">
-                  {alertItems.length} items require restocking to prevent shelf shortages
-                </p>
-              </div>
+      {ingredients.length === 0 ? (
+        <EmptyState title="No ingredients yet" />
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="overflow-hidden rounded-[12px] border border-[#E6EAF0] bg-white">
+            <div className="flex items-center justify-between border-b border-[#E6EAF0] px-5 py-3">
+              <h2 className="text-[14px] font-semibold text-[#111827]">Ingredients</h2>
+              <span className="text-[11px] text-[#9CA3AF]">{ingredients.length} items</span>
             </div>
-          </div>
-
-          <div className="divide-y divide-[#FDE68A]/50">
-            {alertItems.slice(0, 5).map((item) => {
-              const isOut = item.stock <= 0;
-              return (
-                <div
-                  key={item.id}
-                  className="px-6 py-3.5 bg-[#FFFBEB]/45 hover:bg-[#FFFBEB]/80 flex flex-wrap items-center justify-between gap-4 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-[220px] flex-1">
-                    <ProductThumb src={item.image} alt={item.name} size="sm" />
-                    <div className="min-w-0">
-                      <p className="text-[13.5px] font-semibold text-[#111827] truncate">
+            <ul className="divide-y divide-[#F1F4F8]">
+              {ingredients.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(item.id)}
+                    className={`flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition-colors ${
+                      selectedId === item.id ? 'bg-[#EEF2FF]' : 'hover:bg-[#F6F8FB]'
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-semibold text-[#111827]">
                         {item.name}
-                      </p>
-                      <p className="text-[12px] text-[#9CA3AF] tabular-nums">
-                        {item.sku} · {item.category}
-                      </p>
-                    </div>
-                  </div>
+                      </span>
+                      <span className="text-[11px] text-[#9CA3AF]">
+                        {item.stock} {item.unit} · low at {item.lowStockThreshold}
+                      </span>
+                    </span>
+                    {item.lowStock ? (
+                      <StatusBadge status="low" />
+                    ) : (
+                      <span className="text-[12px] font-semibold tabular-nums text-[#047857]">OK</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-                  <div className="flex items-center gap-6">
-                    <div className="text-right tabular-nums">
-                      <p
-                        className={`text-[13.5px] font-bold ${
-                          isOut ? 'text-[#EF4444]' : 'text-[#D97706]'
-                        }`}
-                      >
-                        {isOut ? '0 left (Out of Stock)' : `${item.stock} left`}
-                      </p>
-                      <p className="text-[11.5px] text-[#9CA3AF]">
-                        Alert threshold: {item.lowStockThreshold}
-                      </p>
-                    </div>
-
+          <aside className="space-y-4">
+            {selected && (
+              <section className="rounded-[12px] border border-[#E6EAF0] bg-white p-4">
+                <h2 className="text-[13px] font-semibold text-[#111827]">Restock {selected.name}</h2>
+                <p className="mt-1 flex items-center gap-1.5 text-[12px] text-[#6B7280]">
+                  {selected.lowStock && <AlertTriangle className="h-3.5 w-3.5 text-[#EF4444]" />}
+                  {selected.stock} {selected.unit} in stock
+                </p>
+                {canWrite ? (
+                  <>
+                    <input
+                      value={stockAmount}
+                      onChange={(event) => setStockAmount(event.target.value)}
+                      placeholder="Quantity to add (or negative to use)"
+                      inputMode="decimal"
+                      className="mt-3 h-10 w-full rounded-[9px] border border-[#E6EAF0] bg-[#F6F8FB] px-3 text-[12px]"
+                    />
+                    <input
+                      value={stockNote}
+                      onChange={(event) => setStockNote(event.target.value)}
+                      placeholder="Note (optional)"
+                      className="mt-2 h-10 w-full rounded-[9px] border border-[#E6EAF0] bg-[#F6F8FB] px-3 text-[12px]"
+                    />
                     <button
                       type="button"
-                      disabled={!canRestock}
-                      onClick={() => openRestockModal(item)}
-                      className="h-9 px-3.5 rounded-[9px] bg-white border border-[#F59E0B]/50 hover:border-[#4F46E5] hover:text-[#4F46E5] text-[#92400E] text-[12.5px] font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                      onClick={() => void restock()}
+                      disabled={busy}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#4F46E5] px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-[#4338CA] disabled:opacity-60"
                     >
-                      <PackagePlus className="w-3.5 h-3.5" />
-                      Restock
+                      <PackagePlus className="h-4 w-4" /> Adjust stock
                     </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  </>
+                ) : (
+                  <p className="mt-2 text-[12px] text-[#9CA3AF]">Restocking is not available to your role.</p>
+                )}
+              </section>
+            )}
+
+            <section className="rounded-[12px] border border-[#E6EAF0] bg-white p-4">
+              <h2 className="text-[13px] font-semibold text-[#111827]">Recent movements</h2>
+              {movements.length === 0 ? (
+                <p className="mt-2 text-[12px] text-[#9CA3AF]">No stock movements yet.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-[#F1F4F8] text-[12px]">
+                  {movements.map((movement) => (
+                    <li key={movement.id} className="flex justify-between gap-2 py-2">
+                      <span className="min-w-0 truncate text-[#4B5563]">
+                        {movement.ingredientName}
+                        <span className="block text-[10px] text-[#9CA3AF]">{movement.reason}</span>
+                      </span>
+                      <span className="tabular-nums font-semibold text-[#111827]">
+                        {movement.quantity > 0 ? '+' : ''}
+                        {movement.quantity}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </aside>
         </div>
       )}
 
-      {/* Stock Table Below with Quantity Bars (Green / Amber / Red) and "Restock" Button */}
-      <div className="pos-card overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#E6EAF0] flex flex-wrap items-center justify-between gap-4">
-          <div className="relative w-full sm:w-[320px]">
-            <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search inventory by name, SKU, or category..."
-              className="w-full h-10 pl-10 pr-4 text-[13.5px] bg-[#F6F8FB] border border-[#E6EAF0] rounded-[10px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:bg-white focus:border-[#4F46E5]"
-            />
+      {canEditRecipes && (
+        <section className="rounded-[12px] border border-[#E6EAF0] bg-white p-5">
+          <h2 className="text-[14px] font-semibold text-[#111827]">Recipe editor</h2>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <select
+              value={recipeItemId}
+              onChange={(event) => setRecipeItemId(event.target.value)}
+              className="h-10 min-w-[240px] rounded-[9px] border border-[#E6EAF0] bg-[#F6F8FB] px-3 text-[12px]"
+            >
+              <option value="">Select a menu item</option>
+              {menuItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addRecipeLine}
+              disabled={!recipeItemId || busy}
+              className="rounded-[9px] border border-[#4F46E5] px-3 py-2 text-[12px] font-semibold text-[#4338CA] disabled:opacity-50"
+            >
+              Add ingredient
+            </button>
           </div>
-
-          <div className="flex items-center gap-1 p-1 bg-[#F6F8FB] border border-[#E6EAF0] rounded-[10px] overflow-x-auto">
-            {[
-              { id: 'all' as const, label: `All (${totalProducts})` },
-              {
-                id: 'in-stock' as const,
-                label: `In Stock (${totalProducts - alertItems.length})`,
-              },
-              { id: 'low-stock' as const, label: `Low Stock (${lowStockItems.length})` },
-              { id: 'out-of-stock' as const, label: `Out of Stock (${outOfStockItems.length})` },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-[8px] text-[12.5px] font-medium transition-colors whitespace-nowrap ${
-                  filter === tab.id
-                    ? 'bg-white text-[#111827] shadow-xs border border-[#E6EAF0]'
-                    : 'text-[#4B5563] hover:text-[#111827]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-[#E6EAF0] bg-[#FAFBFD] text-[12px] font-semibold text-[#9CA3AF]">
-                <th className="py-3.5 pl-6 pr-3">Product</th>
-                <th className="py-3.5 px-3">Category</th>
-                <th className="py-3.5 px-3 w-[240px]">Stock Level</th>
-                <th className="py-3.5 px-3 text-right">Stock Value</th>
-                <th className="py-3.5 px-3">Status</th>
-                <th className="py-3.5 pl-3 pr-6 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F1F4F8] text-[13.5px]">
-              {filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-[#9CA3AF]">
-                    No inventory items match your filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredProducts.map((p) => {
-                  const isOut = p.stock <= 0;
-                  const isLow = p.stock > 0 && p.stock <= p.lowStockThreshold;
-                  // Bar percentage relative to 60 units healthy capacity (capped 100%)
-                  const capacityTarget = Math.max(p.lowStockThreshold * 3, 50);
-                  const barPct = isOut ? 0 : Math.min(Math.max(Math.round((p.stock / capacityTarget) * 100), 8), 100);
-
-                  const barColor = isOut
-                    ? 'bg-[#EF4444]'
-                    : isLow
-                      ? 'bg-[#F59E0B]'
-                      : 'bg-[#10B981]';
-
-                  const trackBg = isOut ? 'bg-[#FEE2E2]' : 'bg-[#F1F4F8]';
-
-                  return (
-                    <tr key={p.id} className="hover:bg-[#F6F8FB] transition-colors">
-                      <td className="py-3.5 pl-6 pr-3">
-                        <div className="flex items-center gap-3">
-                          <ProductThumb src={p.image} alt={p.name} size="sm" />
-                          <div>
-                            <p className="font-semibold text-[#111827]">{p.name}</p>
-                            <p className="text-[12px] text-[#9CA3AF] tabular-nums">
-                              {p.sku} · {p.unit}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-3 text-[#4B5563] whitespace-nowrap">{p.category}</td>
-
-                      <td className="py-3.5 px-3">
-                        <div className="space-y-1.5 max-w-[220px]">
-                          <div className="flex items-center justify-between text-[12.5px] tabular-nums">
-                            <span
-                              className={`font-semibold ${
-                                isOut
-                                  ? 'text-[#EF4444]'
-                                  : isLow
-                                    ? 'text-[#D97706]'
-                                    : 'text-[#111827]'
-                              }`}
-                            >
-                              {p.stock} units
-                            </span>
-                            <span className="text-[#9CA3AF]">Min {p.lowStockThreshold}</span>
-                          </div>
-                          <div className={`w-full h-2 rounded-full overflow-hidden ${trackBg}`}>
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${barColor}`}
-                              style={{ width: `${barPct}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-3 text-right font-semibold text-[#111827] tabular-nums whitespace-nowrap">
-                        {formatBDT(p.stock * p.costPrice)}
-                      </td>
-
-                      <td className="py-3.5 px-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-[8px] text-[12px] font-semibold ${
-                            isOut
-                              ? 'bg-[#FEF2F2] text-[#EF4444]'
-                              : isLow
-                                ? 'bg-[#FFFBEB] text-[#D97706]'
-                                : 'bg-[#ECFDF5] text-[#059669]'
-                          }`}
-                        >
-                          {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 pl-3 pr-6 text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          disabled={!canRestock}
-                          onClick={() => openRestockModal(p)}
-                          className="h-9 px-3.5 rounded-[9px] border border-[#E6EAF0] bg-white hover:border-[#4F46E5] hover:text-[#4F46E5] text-[#111827] text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
-                        >
-                          <PackagePlus className="w-3.5 h-3.5 stroke-[1.75]" />
-                          Restock
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Restock Modal */}
-      {restockTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111827]/40 backdrop-blur-[1px]">
-          <div className="w-full max-w-[420px] bg-white border border-[#E6EAF0] rounded-[12px] shadow-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#E6EAF0] flex items-center justify-between">
-              <h3 className="text-[16px] font-semibold text-[#111827]">Restock Inventory</h3>
-              <button
-                type="button"
-                onClick={() => setRestockTarget(null)}
-                className="p-1.5 rounded-lg text-[#4B5563] hover:bg-[#F6F8FB]"
-                aria-label="Close restock dialog"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleConfirmRestock} className="p-6 space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-[10px] bg-[#F6F8FB] border border-[#E6EAF0]">
-                <ProductThumb src={restockTarget.image} alt={restockTarget.name} size="md" />
-                <div className="min-w-0">
-                  <p className="text-[14px] font-semibold text-[#111827] truncate">
-                    {restockTarget.name}
-                  </p>
-                  <p className="text-[12px] text-[#4B5563] tabular-nums">
-                    Current stock: <span className="font-semibold">{restockTarget.stock}</span> ·
-                    Cost {formatBDT(restockTarget.costPrice)}/unit
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[12.5px] font-medium text-[#4B5563] mb-1.5">
-                  Quantity to Add
-                </label>
+          <div className="mt-4 space-y-2">
+            {recipeLines.map((line) => (
+              <div key={line.ingredientId} className="flex items-center gap-3 text-[12px]">
+                <span className="w-48 truncate text-[#374151]">{line.ingredientName}</span>
                 <input
-                  type="number"
-                  required
-                  min="1"
-                  value={restockQty}
-                  onChange={(e) => setRestockQty(e.target.value)}
-                  className="w-full h-10 px-3 text-[14px] font-semibold tabular-nums border border-[#E6EAF0] rounded-[10px] focus:outline-none focus:border-[#4F46E5]"
+                  value={line.quantity}
+                  onChange={(event) => updateRecipeLine(line.ingredientId, Number(event.target.value))}
+                  inputMode="decimal"
+                  aria-label={`${line.ingredientName} quantity`}
+                  className="h-9 w-24 rounded-[9px] border border-[#E6EAF0] px-2 text-[12px]"
                 />
-                <div className="flex items-center gap-2 mt-2.5">
-                  {[10, 15, 25, 50].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setRestockQty(String(preset))}
-                      className={`px-3 py-1 rounded-[8px] text-[12px] font-semibold tabular-nums border transition-colors ${
-                        restockQty === String(preset)
-                          ? 'bg-[#EEF2FF] border-[#4F46E5] text-[#4F46E5]'
-                          : 'bg-[#F6F8FB] border-[#E6EAF0] text-[#4B5563] hover:text-[#111827]'
-                      }`}
-                    >
-                      +{preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-3 rounded-[10px] bg-[#ECFDF5]/60 border border-[#A7F3D0] text-[13px] flex items-center justify-between">
-                <span className="text-[#065F46]">New Stock Level</span>
-                <span className="font-bold text-[#059669] tabular-nums">
-                  {restockTarget.stock + Math.max(Number(restockQty) || 0, 0)} units
-                </span>
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-1">
+                <span className="text-[#9CA3AF]">{line.unit}</span>
                 <button
                   type="button"
-                  onClick={() => setRestockTarget(null)}
-                  className="px-4 py-2 rounded-[10px] border border-[#E6EAF0] text-[13.5px] font-medium text-[#4B5563]"
+                  onClick={() =>
+                    setRecipeLines((previous) =>
+                      previous.filter((entry) => entry.ingredientId !== line.ingredientId)
+                    )
+                  }
+                  className="ml-auto text-[#9CA3AF] hover:text-[#EF4444]"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-[10px] bg-[#4F46E5] hover:bg-[#4338CA] text-white text-[13.5px] font-semibold"
-                >
-                  Confirm Restock
+                  Remove
                 </button>
               </div>
-            </form>
+            ))}
+            {recipeLines.length === 0 && (
+              <p className="text-[12px] text-[#9CA3AF]">This item has no recipe lines.</p>
+            )}
           </div>
-        </div>
+          <button
+            type="button"
+            onClick={() => void saveRecipe()}
+            disabled={!recipeItemId || busy}
+            className="mt-4 rounded-[9px] bg-[#4F46E5] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#4338CA] disabled:opacity-60"
+          >
+            Save recipe
+          </button>
+        </section>
       )}
     </div>
   );
-};
+}

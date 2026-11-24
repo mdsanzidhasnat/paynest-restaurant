@@ -2,13 +2,18 @@
 
 ## Unreleased
 
+- Replaced the retail frontend with restaurant staff screens: restaurant login, dashboard, tables, waiter order entry, kitchen display, menu management, billing, ingredient inventory, reports, users and settings. Each role lands on its primary screen; navigation is filtered only cosmetically and the API remains authoritative.
+- Added reusable `TableCard`, `OrderTicket`, `MenuItemCard`, `BillSummary`, `StatusBadge`, `KitchenTimer` and async-state components. Displayed money uses `src/utils/money.ts` and server totals; the kitchen display polls for updates and its chime is off by default.
+- Added component tests for money helpers, table status rendering, kitchen timers and role-based navigation, bringing the suite to 97 passing tests.
+- Removed retired retail components/tests and the legacy client-side billing/format helpers, rebranded `index.html`, and removed remote Google Fonts so no font or image is fetched at runtime.
+- Removed the temporary `docs/PLAN.md` after the conversion and updated README, setup, API, licensing and screenshot notes.
 - Added public QR ordering: signed, expiring, rotatable table tokens; unauthenticated menu/order/status routes with server-owned prices, privacy filtering, IP/table rate limits and JSON content-type enforcement. Guest orders wait in `pending_confirmation` for waiter confirmation unless an admin enables auto-confirm; kitchen, billing, item changes and reports ignore them until then.
 - Added a mobile-first `/m/:token` guest page and a staff **Table QR** screen that renders and prints local QR codes with pinned `qrcode.react`. Updated `docs/api.md`, README and environment docs; added public-route and schema-v4 tests.
 - Replaced the retail API with the restaurant backend: nine domain routers (`tables`, `menu`, `orders`, `kitchen`, `billing`, `inventory`, `reports`, `users`, `settings`) mounted by `server/app.ts`.
 - Added five-role permissions (`admin`, `manager`, `waiter`, `kitchen`, `cashier`), a server-owned order state machine with per-item events and table status recomputation, HMAC-signed table QR tokens with rotation, and a JSON content-type guard for mutating requests.
 - Billing is now fully server-owned: clamped discounts with a cashier cap (`MAX_CASHIER_DISCOUNT_PERCENT`), VAT/service charge from settings, equal/per-item splits, atomic bill numbers, payment coverage checks and automatic table release.
 - Serving an item deducts recipe ingredients in one IMMEDIATE transaction, writes `stock_movements`, and returns `409` with a `lowStock` flag when stock is short.
-- Added the restaurant schema (v3): floors/tables, menu items and variants, ingredients and recipes, orders/items/payments, bill splits, item events and table transfers. `docs/api.md`, README, setup docs and endpoint tests were updated.
+- Added the restaurant schema (v4): floors/tables, menu items and variants, ingredients and recipes, orders/items/payments, bill splits, item events and table transfers. `docs/api.md`, README, setup docs and endpoint tests were updated.
 - Fixed broken product and avatar images in production: the demo JPEGs moved from `src/assets/images/` to `public/images/` and all stored URLs now use `/images/<filename>`, which Vite copies into `dist/`. The obsolete `src/assets` copy plugin was removed from `vite.config.ts`.
 - Added an idempotent startup migration in `server/migrate.ts` that rewrites legacy `/src/assets/images/...` values in `products.image` and `users.avatar` for already-deployed databases, with unit tests.
 - Renamed the seed source from `src/data/mockData.ts` to `src/data/seedData.ts` and updated the seeders, generated `docs/seed.sql`, and setup docs.

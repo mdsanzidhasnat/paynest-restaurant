@@ -6,12 +6,12 @@ Add these seven files before publishing the listing:
 
 | File | Screen to capture |
 |---|---|
-| `login.png` | Sign-in screen |
-| `dashboard.png` | Dashboard with KPIs and charts |
-| `pos.png` | New Sale / POS terminal with cart |
-| `products.png` | Products list |
-| `inventory.png` | Inventory with low-stock state |
-| `invoice.png` | Invoice preview |
-| `reports.png` | Reports view |
+| `login.png` | Staff sign-in |
+| `dashboard.png` | Dashboard KPIs and open-order alerts |
+| `tables.png` | Floor tabs and table status cards |
+| `waiter-order.png` | Waiter order entry with a running ticket and pending QR orders |
+| `kitchen.png` | Kitchen display columns and elapsed timers |
+| `billing.png` | Bill summary and payment form |
+| `reports.png` | Reports with a runtime date preset |
 
 The root [README.md](../../README.md) already references these paths. Use PNG files with these exact names so the gallery renders without further edits.

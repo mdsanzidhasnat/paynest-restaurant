@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, ApiError } from '../../api/client';
-import { StaffTable, TableQr } from '../../types/pos';
+import { RestaurantTable, TableQr } from '../../types/pos';
 
 interface TableQrViewProps {
   canRotate: boolean;
 }
 
 export function TableQrView({ canRotate }: TableQrViewProps) {
-  const [tables, setTables] = useState<StaffTable[]>([]);
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [qr, setQr] = useState<TableQr | null>(null);
   const [error, setError] = useState('');
@@ -112,7 +112,7 @@ export function TableQrView({ canRotate }: TableQrViewProps) {
                   }`}
                 >
                   <span>Table {table.number}</span>
-                  <span className="text-[11px] text-[#9CA3AF]">{table.floor_name}</span>
+                  <span className="text-[11px] text-[#9CA3AF]">{table.floorName}</span>
                 </button>
               ))}
             </div>

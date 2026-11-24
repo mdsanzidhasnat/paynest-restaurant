@@ -1,15 +1,16 @@
 # AGENTS.md
 
-Project rules for all later work on PayNest POS. These rules apply to every implementation step in this repository.
+Project rules for all later work on PayNest Restaurant. These rules apply to every implementation step in this repository.
 
 ## Product transition note (2026-11-24)
 
-This repository is being converted from the old retail POS into a restaurant management system
-(tables, QR menu ordering, waiter orders, kitchen display, billing, ingredient stock, reports).
-`docs/PLAN.md` is the temporary build plan and is deleted before release.
+This repository has been converted from the old retail POS into a restaurant management system
+(tables, QR menu ordering, waiter orders, kitchen display, menu management, billing, ingredient
+stock, reports, users and settings). The temporary `docs/PLAN.md` was removed after the conversion.
 
-- The conversion scope is exactly the eight functional areas listed in `docs/PLAN.md`; do not add
-  payment gateways, messaging, AI/maps/GPS, multi-branch, delivery integrations or a mobile app.
+- The completed conversion scope is the restaurant functional areas: tables, QR menu ordering,
+  waiter orders, kitchen display, menu management, billing, ingredient inventory, and reports/roles;
+  do not add payment gateways, messaging, AI/maps/GPS, multi-branch, delivery integrations or a mobile app.
 - The old rule about preserving existing screens' visual design, colours and copy applies only to
   legacy code that has not yet been replaced. New and rebranded screens intentionally change copy
   and branding; do not carry over old product names, marketing text or grocery seed data.
@@ -30,8 +31,8 @@ This repository is being converted from the old retail POS into a restaurant man
   atomic numbering. Schema v4 adds `settings.auto_confirm_public_orders`, the
   `pending_confirmation` order status and `idx_orders_table_status`. Number allocation and row
   insertion use separate IMMEDIATE transactions on UNIQUE retry: gaps are possible, duplicates never are.
-- Until the conversion is complete, the repository-specific rules below remain in force where they
-  do not conflict with the plan; where they conflict, `docs/PLAN.md` and this note take precedence.
+- The repository-specific rules below remain in force where they do not conflict with this note;
+  where they conflict, this note takes precedence.
 
 ## Hard rules
 
@@ -73,14 +74,14 @@ This repository is being converted from the old retail POS into a restaurant man
 
 ## Role-based access control
 
-- The single authorization map is `server/permissions.ts` (`PERMISSION_MAP`). It defines all five roles (`admin`, `manager`, `waiter`, `kitchen`, `cashier`) and their permission lists. Deprecated retail aliases remain only for legacy UI screens; no new endpoint may use them.
+- The single authorization map is `server/permissions.ts` (`PERMISSION_MAP`). It defines all five roles (`admin`, `manager`, `waiter`, `kitchen`, `cashier`) and their permission lists. Deprecated retail aliases remain in the map for compatibility only; no screen or endpoint may use them.
 - `server/middleware.ts` enforces it with `requireAuth`, `requirePermission`, and `requireRole`; failures return 401 or 403.
 - The frontend receives the resulting permission list from `/api/auth/me` and uses `can()` in `AuthContext.tsx` only to hide or disable controls. Never treat frontend hiding as authorization.
 
 ## Database layer
 
 - `server/db.ts` opens `better-sqlite3`, enables foreign keys and WAL mode, applies `docs/schema.sql`, and seeds demo rows only when `SEED_DEMO_DATA=true` and the `users` table is empty.
-- `src/data/seedData.ts` is the seed source imported by `server/seed.ts`; it is not the live runtime store. Demo emails/passwords come from environment variables; missing passwords generate a random value logged once in plaintext and stored only as a bcrypt hash. `server/migrate.ts` rewrites legacy `/src/assets/images/...` values in `menu_items.image` and `users.avatar` to `/images/...` on every startup. The current schema version is 3.
+- `src/data/seedData.ts` is the seed source imported by `server/seed.ts`; it is not the live runtime store. Demo emails/passwords come from environment variables; missing passwords generate a random value logged once in plaintext and stored only as a bcrypt hash. `server/migrate.ts` rewrites legacy `/src/assets/images/...` values in `menu_items.image` and `users.avatar` to `/images/...` on every startup. The current schema version is 4.
 - `npm run seed` resets and re-seeds all seeded tables through `server/seed-cli.ts`. Treat it as destructive. `npm run seed:sql` regenerates `docs/seed.sql` from the same mock data for review/import into an empty database.
 - Financial tables keep historical snapshots; prefer deactivating users over deleting them.
 

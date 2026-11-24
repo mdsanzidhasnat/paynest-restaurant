@@ -1,4 +1,4 @@
-# PayNest POS setup
+# PayNest Restaurant setup
 
 For the full list of endpoints, permissions, request bodies, and responses, see [docs/api.md](./docs/api.md).
 
@@ -26,8 +26,11 @@ Edit the new `.env` file. [.env.example](./.env.example) contains only backend p
 | `PORT` | HTTP port for the Node server; defaults to `3000` in production and `3001` for `dev:api` |
 | `CORS_ORIGIN` | Comma-separated allowlist of cross-origin API clients; same-origin requests and static files are always allowed |
 | `SEED_DEMO_DATA` | Set to `true` to create the demo users when the `users` table is empty; defaults to `false` |
-| `ADMIN_EMAIL`, `MANAGER_EMAIL`, `CASHIER_EMAIL` | Demo user email addresses |
-| `ADMIN_PASSWORD`, `MANAGER_PASSWORD`, `CASHIER_PASSWORD` | Demo user passwords; missing values generate a random password printed once at startup |
+| `ADMIN_EMAIL`, `MANAGER_EMAIL`, `WAITER_EMAIL`, `KITCHEN_EMAIL`, `CASHIER_EMAIL` | Demo user email addresses for all five roles |
+| `ADMIN_PASSWORD`, `MANAGER_PASSWORD`, `WAITER_PASSWORD`, `KITCHEN_PASSWORD`, `CASHIER_PASSWORD` | Demo user passwords; missing values generate a random password printed once at startup |
+| `QR_TOKEN_SECRET` | Backend-only HMAC secret for printed table QR codes; production requires at least 32 characters |
+| `QR_TOKEN_TTL_SECONDS` | Printed QR token lifetime in seconds; defaults to one year |
+| `MAX_CASHIER_DISCOUNT_PERCENT` | Cashier discount cap in percent; defaults to `10` |
 
 `server/config.ts` also reads `NODE_ENV` and the legacy `CORS_ORIGINS` fallback; `vite.config.ts` reads `API_TARGET` and `DISABLE_HMR`. None of those are required in `.env.example`. No `VITE_*` variables are used: the browser client calls the relative `/api` path with same-origin credentials.
 
@@ -44,7 +47,7 @@ npm run dev
 - `npm run dev:api` — `NODE_ENV=development PORT=3001 tsx watch server/index.ts`.
 - `npm run dev:web` — Vite on `http://localhost:3000`, proxying `/api` to `API_TARGET` (`http://127.0.0.1:3001` by default).
 
-Open `http://localhost:3000`. You can also run the two commands separately. `npm run preview` previews the built `dist/` folder but does not start the API, so the API must still be running for sign-in and data.
+Open `http://localhost:3000`. Staff sign in to a role-specific home screen: admin/manager start on the dashboard, waiter on tables, kitchen on the kitchen display and cashier on billing. You can also run the two commands separately. `npm run preview` previews the built `dist/` folder but does not start the API, so the API must still be running for sign-in and data.
 
 Useful checks:
 
@@ -87,12 +90,14 @@ docker compose up --build
 
 ## Demo users
 
-When `SEED_DEMO_DATA=true` and the `users` table is empty, [server/seed.ts](./server/seed.ts) creates three active users. Their email addresses and passwords are read from the environment; see README / your `.env` for the password used by your demo.
+When `SEED_DEMO_DATA=true` and the `users` table is empty, [server/seed.ts](./server/seed.ts) creates five active users. Their email addresses and passwords are read from the environment; see README / your `.env` for the password used by your demo.
 
 | Role | Email variable | Password variable |
 |---|---|---|
 | Admin | `ADMIN_EMAIL` | `ADMIN_PASSWORD` |
 | Manager | `MANAGER_EMAIL` | `MANAGER_PASSWORD` |
+| Waiter | `WAITER_EMAIL` | `WAITER_PASSWORD` |
+| Kitchen | `KITCHEN_EMAIL` | `KITCHEN_PASSWORD` |
 | Cashier | `CASHIER_EMAIL` | `CASHIER_PASSWORD` |
 
 If a password variable is missing, a random password is generated and printed once in the startup log (never as a hash). Passwords are stored as bcrypt hashes only. The login route compares the submitted password with the stored hash, signs a JWT, and sets the httpOnly `paynest_token` cookie.
@@ -153,9 +158,9 @@ A **static-only host cannot run this application**. Uploading only `dist/` to a 
 
 For real use, create records through the UI/API instead of relying on seed data, and replace every demo credential. The runtime API writes to SQLite through the routers in `server/routes/`; `seedData.ts` is only the seed source.
 
-## Change product images and the logo
+## Change menu images and the logo
 
-Product images and the demo avatar live in [public/images/](./public/images/). Vite copies `public/` into `dist/` unchanged, so replace files there (keeping the same filenames) and they are served at `/images/<filename>` in development and production. The preset image URLs are listed in [productImages.ts](./src/data/productImages.ts), and the demo avatar URL is `USER_AVATAR` in [seedData.ts](./src/data/seedData.ts); update those constants if you rename a file. Existing databases with old `/src/assets/images/...` values are rewritten to `/images/...` automatically at startup by [migrate.ts](./server/migrate.ts).
+Menu-item images and the demo avatar live in [public/images/](./public/images/). Vite copies `public/` into `dist/` unchanged, so replace files there (keeping the same filenames) and they are served at `/images/<filename>` in development and production. The preset image URLs are listed in [productImages.ts](./src/data/productImages.ts) and offered by the menu editor's local image picker; the demo avatar URL is `USER_AVATAR` in [seedData.ts](./src/data/seedData.ts). Update those constants if you rename a file. Existing databases with old `/src/assets/images/...` values are rewritten to `/images/...` automatically at startup by [migrate.ts](./server/migrate.ts). No image or font is fetched from a remote host at runtime.
 
 There is no separate raster logo asset. The mark is an inline SVG in two places:
 
@@ -169,7 +174,7 @@ Edit both SVGs to keep the login and sidebar marks consistent. If you replace th
 This project does not define a Tailwind `@theme` block. Colours are literal values in two places:
 
 - [src/index.css](./src/index.css) — base page background, text colour, `.pos-card`, scrollbar colours, and print overrides. The `<body>` class in [index.html](./index.html) also contains background, text, and selection colours.
-- Tailwind arbitrary-value utility classes such as `bg-[#4F46E5]` and `text-[#111827]` in the layout, view, modal, and chart components under [src/components/](./src/components/).
+- Tailwind arbitrary-value utility classes such as `bg-[#4F46E5]` and `text-[#111827]` in the layout, common and view components under [src/components/](./src/components/).
 
 To re-theme the app, change the literals in `src/index.css` and `index.html`, then update the utility classes in the relevant components. Keep the existing markup and class structure; only change colour values.
 
@@ -179,17 +184,11 @@ Seeded branding comes from `RESTAURANT_SETTINGS` in [seedData.ts](./src/data/see
 
 Restaurant name, contact details, address, currency symbol, VAT %, service charge %, invoice prefix, paper size, receipt footer and the default low-stock threshold are stored in the `settings` table. Bill invoices also read these values through `/api/bills/orders/:orderId/invoice` in [billing.ts](./server/routes/billing.ts).
 
-> The legacy retail screens still call retired `/api/products`, `/api/sales` and `/api/invoice-settings` endpoints. They remain in the frontend until the UI conversion phase; the restaurant API above is the supported backend (see [docs/api.md](./docs/api.md)).
+## Guest and staff ordering
 
-## Barcode scanner
+Use **Table QR** in the sidebar to generate and print a signed table code. Scanning it opens `/m/:token`, where guests browse available menu items and submit an order without a staff session. New guest orders wait in `pending_confirmation`; a waiter confirms them from the **Waiter order** screen before they reach the kitchen or billing. An admin can enable auto-confirm in **Settings**.
 
-The POS supports keyboard-wedge/HID scanners that type a barcode and send Enter or Tab, plus manual entry in the inline barcode field. See [App.tsx](./src/App.tsx), [BarcodeInput.tsx](./src/components/common/BarcodeInput.tsx), and [PosTerminalView.tsx](./src/components/views/PosTerminalView.tsx).
-
-- Recognised prefixes are `pn-`, `bc:`, `scan:`, `~`, and `]`; rapid numeric input is also treated as a scan.
-- A successful scan switches to POS and adds the matching product.
-- Keep focus outside inputs for the global listener; typed input inside editable fields is not treated as a scan.
-- Matching uses product barcode, SKU, SKU prefix, or product name.
-- Camera-based scanning is not implemented.
+Waiters build orders from menu categories and variants, add notes and send items to the kitchen. Kitchen staff work the New/Preparing/Ready columns with elapsed timers; the optional chime is off by default. Cashiers use **Billing** for server-computed totals, discounts, splits and payment recording. All of these screens call the endpoints documented in [docs/api.md](./docs/api.md); no totals are calculated in the browser.
 
 ## Troubleshooting
 
@@ -201,7 +200,6 @@ The POS supports keyboard-wedge/HID scanners that type a barcode and send Enter 
 - **Native module crash on startup:** run `npm run smoke`. A failure in `bcrypt` or `better-sqlite3` means the installed binary does not match the Node version/platform; reinstall with `npm ci` on Node 20.19+ (the project pins `better-sqlite3` to 12.11.1).
 - **CORS error in the browser:** same-origin requests and static files are always allowed, so check that the browser URL and API URL really are on different origins. For a cross-origin frontend, add its exact origin to `CORS_ORIGIN` and restart the server.
 - **Static deployment shows HTML but no API:** static-only hosting cannot run the bundled Node server; deploy the single Node service instead.
-- **A scan does not add a product:** keep focus outside editable fields, confirm the barcode/SKU matches a product, and configure the scanner to send Enter or Tab.
-- **“Forgot password?” does nothing:** that form is a local UI confirmation only; there is no reset email or reset API.
-- **Held orders disappear:** held carts are kept in React memory only and are not persisted.
+- **A guest order is missing from the kitchen:** open **Waiter order** and confirm the `pending_confirmation` ticket, or enable auto-confirm in **Settings**.
+- **An action shows a permission message:** the role lacks that backend permission. Ask an admin to review the user role; hiding navigation in the UI is not an access control.
 - **Invoice details look generic:** update the `settings` row through `PUT /api/settings` (admin) or change `RESTAURANT_SETTINGS` before reseeding.

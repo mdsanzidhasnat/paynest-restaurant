@@ -1,39 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, ApiError, setUnauthorizedHandler, type AuthUser } from '../api/client';
+import {
+  api,
+  ApiError,
+  setForbiddenHandler,
+  setUnauthorizedHandler,
+  type AuthUser,
+} from '../api/client';
+import type { Permission } from '../../server/permissions';
 
-export type Permission =
-  | 'dashboard:read'
-  | 'users:read'
-  | 'users:write'
-  | 'users:delete'
-  | 'settings:read'
-  | 'settings:write'
-  | 'invoice-settings:read'
-  | 'products:read'
-  | 'products:write'
-  | 'products:delete'
-  | 'categories:read'
-  | 'categories:write'
-  | 'categories:delete'
-  | 'inventory:read'
-  | 'inventory:write'
-  | 'customers:read'
-  | 'customers:write'
-  | 'customers:delete'
-  | 'suppliers:read'
-  | 'suppliers:write'
-  | 'suppliers:delete'
-  | 'purchases:read'
-  | 'purchases:write'
-  | 'purchases:delete'
-  | 'sales:create'
-  | 'sales:read'
-  | 'sales:delete'
-  | 'dues:read'
-  | 'dues:write'
-  | 'reports:read'
-  | 'tables:read'
-  | 'tables:qr';
+export type { Permission };
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -83,7 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUnauthorizedHandler(() => {
       setUser(null);
     });
-    return () => setUnauthorizedHandler(null);
+    setForbiddenHandler((message) => {
+      setForbiddenMessage(message || 'You do not have permission to do that.');
+    });
+    return () => {
+      setUnauthorizedHandler(null);
+      setForbiddenHandler(null);
+    };
   }, []);
 
   const clearForbiddenMessage = useCallback(() => setForbiddenMessage(''), []);

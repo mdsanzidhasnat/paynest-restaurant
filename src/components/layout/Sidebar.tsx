@@ -1,16 +1,14 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Tags,
-  Warehouse,
-  Users,
-  Wallet,
-  Truck,
+  LayoutGrid,
   ClipboardList,
+  ChefHat,
+  Utensils,
   ReceiptText,
+  Package,
   BarChart3,
+  Users,
   Settings,
   Store,
   PanelLeftClose,
@@ -29,6 +27,7 @@ interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   allowedSections?: NavSection[];
+  restaurantName?: string;
 }
 
 interface NavItem {
@@ -47,26 +46,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
   onToggleCollapse,
   allowedSections,
+  restaurantName = 'PayNest Restaurant',
 }) => {
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'pos', label: 'New Sale (POS)', icon: ShoppingCart },
-    { id: 'table-qr', label: 'Table QR', icon: QrCode },
-    { id: 'products', label: 'Products', icon: Package },
-    { id: 'categories', label: 'Categories', icon: Tags },
+    { id: 'tables', label: 'Tables', icon: LayoutGrid },
+    { id: 'waiter-order', label: 'Waiter Orders', icon: ClipboardList },
+    { id: 'kitchen', label: 'Kitchen Display', icon: ChefHat },
+    { id: 'menu', label: 'Menu', icon: Utensils },
+    { id: 'billing', label: 'Billing', icon: ReceiptText },
     {
       id: 'inventory',
-      label: 'Inventory',
-      icon: Warehouse,
+      label: 'Ingredients',
+      icon: Package,
       badge: lowStockCount > 0 ? lowStockCount : undefined,
     },
-    { id: 'customers', label: 'Customers', icon: Users },
-    { id: 'due-collection', label: 'Due Collection', icon: Wallet },
-    { id: 'suppliers', label: 'Suppliers', icon: Truck },
-    { id: 'purchases', label: 'Purchases', icon: ClipboardList },
-    { id: 'sales-history', label: 'Sales History', icon: ReceiptText },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
+    { id: 'users', label: 'Users', icon: Users },
     { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'table-qr', label: 'Table QR', icon: QrCode },
   ];
 
   const visibleNavItems = allowedSections
@@ -94,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => handleSelect('dashboard')}
-            title="PayNest POS"
+            title="PayNest Restaurant"
             className="flex items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] rounded-lg"
           >
             <div className="w-10 h-10 rounded-[10px] bg-[#4F46E5] flex items-center justify-center shadow-sm shrink-0">
@@ -116,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             {!isCollapsed && (
               <span className="text-[17px] font-bold tracking-[-0.02em] text-[#111827] whitespace-nowrap">
-                PayNest POS
+                PayNest Restaurant
               </span>
             )}
           </button>
@@ -166,10 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              activeSection === item.id ||
-              (item.id === 'products' && activeSection === 'add-product') ||
-              (item.id === 'sales-history' && activeSection === 'invoice-preview');
+            const isActive = activeSection === item.id;
             return (
               <button
                 key={item.id}
@@ -223,7 +218,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 border-t border-[#E6EAF0]">
         {isCollapsed ? (
           <div
-            title="PayNest Mart — Dhanmondi, Dhaka"
+            title={`${restaurantName} — staff workspace`}
             className="w-11 h-11 mx-auto rounded-[10px] bg-[#F6F8FB] border border-[#E6EAF0] flex items-center justify-center text-[#4F46E5]"
           >
             <Store className="w-5 h-5 stroke-[1.75]" />
@@ -234,8 +229,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Store className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-[#111827] truncate">PayNest Mart</p>
-              <p className="text-[11px] text-[#9CA3AF] truncate">Dhanmondi, Dhaka</p>
+              <p className="text-[13px] font-semibold text-[#111827] truncate">{restaurantName}</p>
+              <p className="text-[11px] text-[#9CA3AF] truncate">Staff workspace</p>
             </div>
           </div>
         )}

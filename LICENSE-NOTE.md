@@ -26,6 +26,7 @@ The table lists every direct entry in the `dependencies` and `devDependencies` s
 | `lucide-react` | dependencies | ISC |
 | `react` | dependencies | MIT |
 | `react-dom` | dependencies | MIT |
+| `qrcode.react` | dependencies | ISC |
 | `zod` | dependencies | MIT |
 | `@tailwindcss/vite` | devDependencies | MIT |
 | `@testing-library/jest-dom` | devDependencies | MIT |
@@ -56,6 +57,6 @@ These are direct dependencies only; their transitive dependencies may have addit
 
 ## Fonts and images
 
-The interface loads **Inter** from Google Fonts in [index.html](./index.html); Inter is distributed under the SIL Open Font License (OFL) 1.1. The font is loaded remotely rather than bundled in the source.
+The interface does not load fonts remotely. [src/index.css](./src/index.css) prefers **Inter** when it is installed locally and otherwise falls back to the platform UI font stack; no font file is bundled or fetched at runtime. If you bundle Inter later, include its SIL Open Font License (OFL) 1.1 notice.
 
-The product and avatar demo images under [public/images/](./public/images/) are AI-generated for demonstration only. Replace them with assets you have rights to use if their origin or licence cannot be confirmed for commercial distribution.
+The menu-item and avatar demo images under [public/images/](./public/images/) are AI-generated for demonstration only. Replace them with assets you have rights to use if their origin or licence cannot be confirmed for commercial distribution.

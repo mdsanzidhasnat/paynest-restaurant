@@ -6,37 +6,55 @@ import {
   Menu,
   AlertTriangle,
   ReceiptText,
-  Package,
+  Utensils,
+  LayoutGrid,
   User,
   ChevronRight,
   LogOut,
   Settings,
 } from 'lucide-react';
-import { Customer, NavSection, Product, SaleInvoice, StaffRole } from '../../types/pos';
-import { formatBDT } from '../../utils/format';
+import type {
+  Ingredient,
+  MenuItem,
+  NavSection,
+  RestaurantOrder,
+  RestaurantTable,
+} from '../../types/pos';
+import { formatMoney } from '../../utils/money';
 
 interface TopBarProps {
   activeSection: NavSection;
   onNavigate: (section: NavSection) => void;
   onOpenMobileMenu: () => void;
-  products: Product[];
-  customers: Customer[];
-  invoices: SaleInvoice[];
-  onInspectInvoice: (invoice: SaleInvoice) => void;
+  onSelectOrder: (order: RestaurantOrder) => void;
+  tables: RestaurantTable[];
+  menuItems: MenuItem[];
+  orders: RestaurantOrder[];
+  lowStockItems: Ingredient[];
   onSignOut: () => void;
   userName: string;
-  userRole: StaffRole;
+  userRole: string;
   avatarUrl?: string;
   canManageSettings: boolean;
+}
+
+function todayLabel(): string {
+  return new Date().toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
   onNavigate,
   onOpenMobileMenu,
-  products,
-  customers,
-  invoices,
-  onInspectInvoice,
+  onSelectOrder,
+  tables,
+  menuItems,
+  orders,
+  lowStockItems,
   onSignOut,
   userName,
   userRole,
@@ -69,23 +87,28 @@ export const TopBar: React.FC<TopBarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const lowStockItems = products.filter((p) => p.stock <= p.lowStockThreshold);
-  const dueInvoices = invoices.filter((inv) => inv.paymentStatus === 'Due');
-  const alertCount = lowStockItems.length + dueInvoices.length;
+  const openOrders = orders.filter(
+    (order) => order.paymentStatus === 'unpaid' && order.status !== 'closed'
+  );
+  const alertCount = lowStockItems.length + openOrders.length;
 
   const q = searchQuery.trim().toLowerCase();
-  const matchedProducts = q
-    ? products.filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)).slice(0, 4)
+  const matchedItems = q
+    ? menuItems.filter((item) => item.name.toLowerCase().includes(q)).slice(0, 4)
     : [];
-  const matchedInvoices = q
-    ? invoices
-        .filter((inv) => inv.invoiceNumber.toLowerCase().includes(q) || inv.customerName.toLowerCase().includes(q))
+  const matchedTables = q
+    ? tables.filter((table) => table.number.toLowerCase().includes(q)).slice(0, 3)
+    : [];
+  const matchedOrders = q
+    ? orders
+        .filter(
+          (order) =>
+            order.orderNumber.toLowerCase().includes(q) ||
+            (order.billNumber ?? '').toLowerCase().includes(q)
+        )
         .slice(0, 3)
     : [];
-  const matchedCustomers = q
-    ? customers.filter((c) => c.name.toLowerCase().includes(q) || c.phone.includes(q)).slice(0, 3)
-    : [];
-  const hasResults = matchedProducts.length > 0 || matchedInvoices.length > 0 || matchedCustomers.length > 0;
+  const hasResults = matchedItems.length + matchedTables.length + matchedOrders.length > 0;
 
   const userInitials =
     userName
@@ -96,6 +119,15 @@ export const TopBar: React.FC<TopBarProps> = ({
       .join('')
       .toUpperCase() || 'U';
   const displayName = userName.split(/\s+/)[0] || userName;
+
+  function tableNumber(tableId: string): string {
+    return tables.find((table) => table.id === tableId)?.number ?? '—';
+  }
+
+  function closeSearch() {
+    setSearchOpen(false);
+    setSearchQuery('');
+  }
 
   return (
     <header className="no-print h-[72px] bg-[#FFFFFF] border-b border-[#E6EAF0] px-6 lg:px-8 flex items-center justify-between gap-6 sticky top-0 z-30">
@@ -122,7 +154,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onFocus={() => {
               if (searchQuery.trim()) setSearchOpen(true);
             }}
-            placeholder="Search products, invoices, or customers..."
+            placeholder="Search menu items, tables or orders..."
             className="w-full h-10 pl-10 pr-4 text-[13.5px] bg-[#F6F8FB] border border-[#E6EAF0] rounded-[10px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:bg-white focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition-all"
           />
 
@@ -134,80 +166,81 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </div>
               ) : (
                 <div className="divide-y divide-[#F1F4F8]">
-                  {matchedProducts.length > 0 && (
+                  {matchedItems.length > 0 && (
                     <div className="py-1.5">
-                      <p className="px-4 py-1 text-[11px] font-semibold text-[#9CA3AF]">Products</p>
-                      {matchedProducts.map((product) => (
+                      <p className="px-4 py-1 text-[11px] font-semibold text-[#9CA3AF]">Menu</p>
+                      {matchedItems.map((item) => (
                         <button
-                          key={product.id}
+                          key={item.id}
                           type="button"
                           onClick={() => {
-                            onNavigate('products');
-                            setSearchOpen(false);
-                            setSearchQuery('');
+                            onNavigate('menu');
+                            closeSearch();
                           }}
                           className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-[#F6F8FB] transition-colors"
                         >
                           <span className="flex items-center gap-2.5 min-w-0">
-                            <Package className="w-4 h-4 text-[#4F46E5] shrink-0" />
-                            <span className="text-[13px] font-medium text-[#111827] truncate">{product.name}</span>
+                            <Utensils className="w-4 h-4 text-[#4F46E5] shrink-0" />
+                            <span className="text-[13px] font-medium text-[#111827] truncate">
+                              {item.name}
+                            </span>
                           </span>
                           <span className="text-[12px] font-semibold text-[#4B5563] tabular-nums ml-3 shrink-0">
-                            {formatBDT(product.sellPrice)}
+                            {formatMoney(item.price)}
                           </span>
                         </button>
                       ))}
                     </div>
                   )}
 
-                  {matchedInvoices.length > 0 && (
+                  {matchedTables.length > 0 && (
                     <div className="py-1.5">
-                      <p className="px-4 py-1 text-[11px] font-semibold text-[#9CA3AF]">Invoices</p>
-                      {matchedInvoices.map((inv) => (
+                      <p className="px-4 py-1 text-[11px] font-semibold text-[#9CA3AF]">Tables</p>
+                      {matchedTables.map((table) => (
                         <button
-                          key={inv.id}
+                          key={table.id}
                           type="button"
                           onClick={() => {
-                            onInspectInvoice(inv);
-                            setSearchOpen(false);
-                            setSearchQuery('');
+                            onNavigate('tables');
+                            closeSearch();
+                          }}
+                          className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-[#F6F8FB] transition-colors"
+                        >
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <LayoutGrid className="w-4 h-4 text-[#0284C7] shrink-0" />
+                            <span className="text-[13px] font-medium text-[#111827]">
+                              Table {table.number}
+                            </span>
+                          </span>
+                          <span className="text-[12px] text-[#9CA3AF] ml-3 shrink-0">
+                            {table.floorName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {matchedOrders.length > 0 && (
+                    <div className="py-1.5">
+                      <p className="px-4 py-1 text-[11px] font-semibold text-[#9CA3AF]">Orders</p>
+                      {matchedOrders.map((order) => (
+                        <button
+                          key={order.id}
+                          type="button"
+                          onClick={() => {
+                            onSelectOrder(order);
+                            closeSearch();
                           }}
                           className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-[#F6F8FB] transition-colors"
                         >
                           <span className="flex items-center gap-2.5 min-w-0">
                             <ReceiptText className="w-4 h-4 text-[#10B981] shrink-0" />
                             <span className="text-[13px] font-medium text-[#111827] truncate">
-                              {inv.invoiceNumber} — {inv.customerName}
+                              {order.orderNumber} — Table {tableNumber(order.tableId)}
                             </span>
                           </span>
                           <span className="text-[12px] font-semibold text-[#4B5563] tabular-nums ml-3 shrink-0">
-                            {formatBDT(inv.amount)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {matchedCustomers.length > 0 && (
-                    <div className="py-1.5">
-                      <p className="px-4 py-1 text-[11px] font-semibold text-[#9CA3AF]">Customers</p>
-                      {matchedCustomers.map((cust) => (
-                        <button
-                          key={cust.id}
-                          type="button"
-                          onClick={() => {
-                            onNavigate('customers');
-                            setSearchOpen(false);
-                            setSearchQuery('');
-                          }}
-                          className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-[#F6F8FB] transition-colors"
-                        >
-                          <span className="flex items-center gap-2.5 min-w-0">
-                            <User className="w-4 h-4 text-[#F59E0B] shrink-0" />
-                            <span className="text-[13px] font-medium text-[#111827] truncate">{cust.name}</span>
-                          </span>
-                          <span className="text-[12px] text-[#9CA3AF] tabular-nums ml-3 shrink-0">
-                            {cust.phone}
+                            {formatMoney(order.total)}
                           </span>
                         </button>
                       ))}
@@ -220,15 +253,13 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Right: Date, Notification Bell, User Avatar ("Sanzid", "Admin") */}
+      {/* Right: Date, Notification Bell, User Avatar */}
       <div className="flex items-center gap-5 shrink-0">
-        {/* Current Date */}
         <div className="hidden md:flex items-center gap-2 text-[13px] font-medium text-[#4B5563] px-3 py-1.5 rounded-[10px] bg-[#F6F8FB] border border-[#E6EAF0] whitespace-nowrap">
           <Calendar className="w-4 h-4 text-[#6B7280] stroke-[1.75]" />
-          <span className="tabular-nums">Sat, 21 Nov 2026</span>
+          <span className="tabular-nums">{todayLabel()}</span>
         </div>
 
-        {/* Notification Bell */}
         <div className="relative" ref={notifRef}>
           <button
             type="button"
@@ -247,8 +278,10 @@ export const TopBar: React.FC<TopBarProps> = ({
           {notifOpen && (
             <div className="absolute right-0 top-[48px] w-[340px] bg-white border border-[#E6EAF0] rounded-[12px] shadow-lg z-50 overflow-hidden">
               <div className="px-4 py-3 border-b border-[#E6EAF0] flex items-center justify-between">
-                <span className="text-[13.5px] font-semibold text-[#111827]">Store Alerts</span>
-                <span className="text-[12px] font-medium text-[#4F46E5] tabular-nums">{alertCount} active</span>
+                <span className="text-[13.5px] font-semibold text-[#111827]">Restaurant alerts</span>
+                <span className="text-[12px] font-medium text-[#4F46E5] tabular-nums">
+                  {alertCount} active
+                </span>
               </div>
               <div className="max-h-[320px] overflow-y-auto divide-y divide-[#F1F4F8]">
                 {lowStockItems.slice(0, 4).map((item) => (
@@ -267,18 +300,19 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-medium text-[#111827] truncate">{item.name}</p>
                       <p className="text-[12px] text-[#4B5563] mt-0.5 tabular-nums">
-                        Only <span className="font-semibold text-[#EF4444]">{item.stock}</span> left in stock
+                        Only <span className="font-semibold text-[#EF4444]">{item.stock}</span>{' '}
+                        {item.unit} left
                       </p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-[#9CA3AF] shrink-0 mt-1" />
                   </button>
                 ))}
-                {dueInvoices.slice(0, 2).map((inv) => (
+                {openOrders.slice(0, 3).map((order) => (
                   <button
-                    key={inv.id}
+                    key={order.id}
                     type="button"
                     onClick={() => {
-                      onInspectInvoice(inv);
+                      onSelectOrder(order);
                       setNotifOpen(false);
                     }}
                     className="w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-[#F6F8FB] transition-colors"
@@ -288,10 +322,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-medium text-[#111827] truncate">
-                        Due Payment — {inv.customerName}
+                        {order.orderNumber} — Table {tableNumber(order.tableId)}
                       </p>
                       <p className="text-[12px] text-[#4B5563] mt-0.5 tabular-nums">
-                        {inv.invoiceNumber} · {formatBDT(inv.amount)} pending
+                        {formatMoney(order.total)} · {order.status.replace(/_/g, ' ')}
                       </p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-[#9CA3AF] shrink-0 mt-1" />
@@ -307,17 +341,17 @@ export const TopBar: React.FC<TopBarProps> = ({
                   }}
                   className="text-[12.5px] font-medium text-[#4F46E5] hover:underline"
                 >
-                  Review all low stock
+                  Review low stock
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    onNavigate('sales-history');
+                    onNavigate('tables');
                     setNotifOpen(false);
                   }}
                   className="text-[12.5px] font-medium text-[#4B5563] hover:text-[#111827]"
                 >
-                  Due invoices
+                  View tables
                 </button>
               </div>
             </div>
@@ -326,7 +360,6 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         <div className="h-6 w-px bg-[#E6EAF0] hidden sm:block" />
 
-        {/* User Avatar + signed-in user */}
         <div className="relative" ref={profileRef}>
           <button
             type="button"
@@ -347,7 +380,9 @@ export const TopBar: React.FC<TopBarProps> = ({
               />
             )}
             <div className="hidden sm:block leading-tight">
-              <p className="text-[13.5px] font-semibold text-[#111827] whitespace-nowrap">{displayName}</p>
+              <p className="text-[13.5px] font-semibold text-[#111827] whitespace-nowrap">
+                {displayName}
+              </p>
               <p className="text-[11.5px] text-[#9CA3AF] whitespace-nowrap">{userRole}</p>
             </div>
           </button>
@@ -365,7 +400,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     className="w-full px-3.5 py-2 text-left text-[13px] font-medium text-[#111827] hover:bg-[#F6F8FB] inline-flex items-center gap-2.5"
                   >
                     <Settings className="w-4 h-4 text-[#4B5563]" />
-                    Store Settings
+                    Restaurant settings
                   </button>
                   <div className="my-1 border-t border-[#F1F4F8]" />
                 </>

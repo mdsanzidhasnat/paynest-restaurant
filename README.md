@@ -1,10 +1,9 @@
-# Restaurant Management System
+# PayNest Restaurant
 
-Restaurant Management System is a table-service POS in progress: floor/table management, QR menu
+PayNest Restaurant is a table-service restaurant management system: floor/table management, QR menu
 ordering, waiter orders, a kitchen display, server-computed billing, ingredient stock and reports.
-It pairs a React 19 / TypeScript front end with an Express API and SQLite persistence. The
-database layer, the authenticated backend API and public QR ordering are complete; remaining UI
-screens are being replaced from the legacy retail app in phases described in `docs/PLAN.md`.
+It pairs a React 19 / TypeScript front end with an Express API and SQLite persistence. The database,
+authenticated API, staff screens and guest QR ordering are complete.
 
 **Live demo:** [Paste your live demo URL here] — replace this placeholder with your deployed URL before publishing.
 
@@ -26,24 +25,15 @@ See [HowToSetup.md](./HowToSetup.md#demo-users) for the password used by your ow
 
 ## Features
 
-> Conversion status: the restaurant database and all authenticated backend endpoints are
-> implemented and documented in [docs/api.md](./docs/api.md). The legacy retail screens listed
-> below are still present in the frontend and are being replaced phase by phase; see
-> `docs/PLAN.md`. Public QR menu/ordering and the guest page are now live.
+The staff app and guest page use the same restaurant API. Money is stored as INTEGER minor units
+(paisa) and every total is computed by the server; the client only formats and displays it.
 
-New restaurant backend (live):
-
-- **Real sign-in and five roles** — bcrypt, JWT in an httpOnly `SameSite=Strict` cookie, and server-side permission checks for `admin`, `manager`, `waiter`, `kitchen` and `cashier`. See [auth.ts](./server/routes/auth.ts), [permissions.ts](./server/permissions.ts), and [middleware.ts](./server/middleware.ts).
-- **Tables and QR tokens** — floors, table map with server-owned status, and expiring HMAC-signed table tokens with per-table rotation. See [tables.ts](./server/routes/tables.ts) and [qr-token.ts](./server/qr-token.ts).
-- **Public QR menu and ordering** — a mobile-first `/m/:token` guest page with no staff navigation, a staff QR print page, and signed unauthenticated API routes. Guests see only available menu data; the server recomputes all prices and rate-limits requests. Orders start as `pending_confirmation` until a waiter confirms them, unless an admin enables auto-confirm. See [public.ts](./server/routes/public.ts) and [CustomerMenuPage.tsx](./src/components/customer/CustomerMenuPage.tsx).
-- **Waiter orders and kitchen display** — atomic order numbers, price snapshots, transfers, cancellation with reason, and a `new → preparing → ready → served` state machine with per-item events. See [orders.ts](./server/routes/orders.ts), [kitchen.ts](./server/routes/kitchen.ts), and [order-state.ts](./server/order-state.ts).
-- **Billing** — server-only subtotals, clamped discounts (cashier cap via `MAX_CASHIER_DISCOUNT_PERCENT`), VAT/service charge from settings, equal/per-item splits, payment method selection only, and automatic table release when payments cover the total. See [billing.ts](./server/routes/billing.ts) and [billing.ts](./server/billing.ts).
-- **Menu and ingredients** — categories, items, variants, price permissions, availability toggle, per-item recipes, stock ledger, automatic deduction on serve, and low-stock reports. See [menu.ts](./server/routes/menu.ts) and [inventory.ts](./server/routes/inventory.ts).
-- **Reports, users and settings** — dashboard, daily sales, top items, table turnover, admin-only staff management with last-admin protection, and singleton restaurant settings. See [reports.ts](./server/routes/reports.ts), [users.ts](./server/routes/users.ts), and [settings.ts](./server/routes/settings.ts).
-
-Legacy frontend screens still present (to be replaced): point-of-sale checkout with barcode scanning and held orders, product/category screens, customers and dues, suppliers and purchases, sales history/invoice preview, dashboard/reports views, and store settings. They no longer have retail API routes; the restaurant endpoints above are the supported backend.
-
-The login screen includes a “Forgot password?” form, but it only shows a local confirmation message; no reset email or reset API exists. Held orders live in React memory only. The invoice “Download PDF” action writes an `.html` file.
+- **Role-based staff workspace** — bcrypt login with an httpOnly `SameSite=Strict` cookie, five roles, and backend permission checks. Admin/manager start on the dashboard, waiter on tables, kitchen on the kitchen display and cashier on billing. Navigation is hidden cosmetically; the API remains authoritative. See [auth.ts](./server/routes/auth.ts), [permissions.ts](./server/permissions.ts), and [navigation.ts](./src/utils/navigation.ts).
+- **Tables, QR menu and guest orders** — floor tabs and table cards, printable signed table codes, a mobile-first `/m/:token` guest page, and waiter confirmation of pending QR orders. Guests see only available menu data. See [tables.ts](./server/routes/tables.ts), [public.ts](./server/routes/public.ts), and [CustomerMenuPage.tsx](./src/components/customer/CustomerMenuPage.tsx).
+- **Waiter ordering and kitchen display** — menu categories, variants, notes, running tickets, send-to-kitchen, table transfers, New/Preparing/Ready columns, elapsed timers and optional sound (off by default). Tickets poll the API. See [orders.ts](./server/routes/orders.ts), [kitchen.ts](./server/routes/kitchen.ts), and [order-state.ts](./server/order-state.ts).
+- **Server-owned billing** — bill request, role-limited discounts, equal/item splits, payment methods, a print stylesheet, and dues returned by the API. No gateway is integrated. See [billing.ts](./server/routes/billing.ts), [server/billing.ts](./server/billing.ts), and [BillSummary.tsx](./src/components/common/BillSummary.tsx).
+- **Menu and ingredient inventory** — categories, items, variants, availability, local image picker, per-item recipes, stock ledger, adjustments and low-stock alerts. See [menu.ts](./server/routes/menu.ts) and [inventory.ts](./server/routes/inventory.ts).
+- **Reports, users and settings** — runtime 7/14/30-day presets, daily sales, top items and table turnover, admin-only staff management, and singleton restaurant settings. See [reports.ts](./server/routes/reports.ts), [users.ts](./server/routes/users.ts), [settings.ts](./server/routes/settings.ts), and [dates.ts](./src/utils/dates.ts).
 
 ## Tech stack
 
@@ -64,16 +54,16 @@ Open `http://localhost:3000` for the staff app. Use **Table QR** in the sidebar 
 
 ## Screenshots
 
-The screenshot files are not committed yet. Add the files listed in [docs/screenshots/README.md](./docs/screenshots/README.md), then these references will render:
+Screenshot files are not committed yet. Add the files listed in [docs/screenshots/README.md](./docs/screenshots/README.md), then these references will render:
 
 | Screen | Image |
 |---|---|
 | Login | `docs/screenshots/login.png` |
 | Dashboard | `docs/screenshots/dashboard.png` |
-| POS | `docs/screenshots/pos.png` |
-| Products | `docs/screenshots/products.png` |
-| Inventory | `docs/screenshots/inventory.png` |
-| Invoice | `docs/screenshots/invoice.png` |
+| Tables | `docs/screenshots/tables.png` |
+| Waiter order | `docs/screenshots/waiter-order.png` |
+| Kitchen display | `docs/screenshots/kitchen.png` |
+| Billing | `docs/screenshots/billing.png` |
 | Reports | `docs/screenshots/reports.png` |
 
 ## Database
@@ -125,10 +115,10 @@ The authoritative map is [server/permissions.ts](./server/permissions.ts). The b
 | Role | Backend permissions | Main areas reachable |
 |---|---|---|
 | Admin | Full administration: staff, settings, menu, floors, stock and reports | Every area |
-| Manager | Menu, tables, stock, orders and reports; cannot create admins | Management, reporting and floor operations |
-| Waiter | Table/order screens | Waiter order entry and table status |
-| Kitchen | Kitchen display | Item status updates only |
-| Cashier | Billing and payments | Bills, discounts and payment recording |
+| Manager | Menu, tables, stock, orders and reports; cannot create admins | Dashboard, management and floor operations |
+| Waiter | Table/order screens and bill requests | Tables, waiter order and billing |
+| Kitchen | Kitchen tickets, availability and stock | Kitchen display, menu availability and ingredient stock |
+| Cashier | Table lookup and billing | Tables and billing |
 
 Frontend navigation is permission-filtered only for convenience; every privileged API route is checked on the backend.
 
