@@ -7,9 +7,6 @@ export type UiRole = 'Admin' | 'Manager' | 'Waiter' | 'Kitchen' | 'Cashier';
  * The single authorization map for the whole API. Frontend code receives the
  * resulting permission list from GET /api/auth/me and uses it only to hide or
  * disable controls; the server is always authoritative.
- *
- * The `products:*`, `sales:*` and similar retail keys at the bottom are
- * deprecated aliases kept only until the legacy screens are replaced.
  */
 export const PERMISSION_MAP = {
   'session:manage': ['admin', 'manager', 'waiter', 'kitchen', 'cashier'],
@@ -54,29 +51,6 @@ export const PERMISSION_MAP = {
   'settings:read': ['admin'],
   'settings:write': ['admin'],
   'audit:read': ['admin'],
-
-  // Deprecated retail aliases: no new endpoint may rely on these.
-  'dashboard:read': ['admin', 'manager'],
-  'products:read': ['admin', 'manager', 'waiter', 'kitchen', 'cashier'],
-  'products:write': ['admin', 'manager'],
-  'products:delete': ['admin', 'manager'],
-  'categories:read': ['admin', 'manager', 'waiter', 'kitchen', 'cashier'],
-  'categories:write': ['admin', 'manager'],
-  'categories:delete': ['admin', 'manager'],
-  'customers:read': ['admin', 'manager', 'cashier'],
-  'customers:write': ['admin', 'manager'],
-  'customers:delete': ['admin', 'manager'],
-  'suppliers:read': ['admin', 'manager'],
-  'suppliers:write': ['admin', 'manager'],
-  'suppliers:delete': ['admin', 'manager'],
-  'purchases:read': ['admin', 'manager'],
-  'purchases:write': ['admin', 'manager'],
-  'purchases:delete': ['admin', 'manager'],
-  'sales:create': ['admin', 'manager', 'waiter'],
-  'sales:read': ['admin', 'manager', 'cashier'],
-  'sales:delete': ['admin', 'manager'],
-  'dues:read': ['admin', 'manager'],
-  'dues:write': ['admin', 'manager'],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSION_MAP;

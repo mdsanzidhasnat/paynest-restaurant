@@ -240,8 +240,8 @@ export function runMigrations(db: Database.Database): number {
 }
 
 /**
- * Rewrites legacy image paths from the old product to self-contained paths in
- * public/images/. Idempotent: rows already using /images/ are not matched.
+ * Rewrites legacy image paths to self-contained paths in public/images/.
+ * Idempotent: rows already using /images/ are not matched.
  */
 export function migrateLegacyAssetPaths(db: Database.Database): number {
   let updated = 0;

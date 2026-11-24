@@ -1,61 +1,43 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — 2026-11-24
 
-- Replaced the retail frontend with restaurant staff screens: restaurant login, dashboard, tables, waiter order entry, kitchen display, menu management, billing, ingredient inventory, reports, users and settings. Each role lands on its primary screen; navigation is filtered only cosmetically and the API remains authoritative.
-- Added reusable `TableCard`, `OrderTicket`, `MenuItemCard`, `BillSummary`, `StatusBadge`, `KitchenTimer` and async-state components. Displayed money uses `src/utils/money.ts` and server totals; the kitchen display polls for updates and its chime is off by default.
-- Added component tests for money helpers, table status rendering, kitchen timers and role-based navigation, bringing the suite to 97 passing tests.
-- Removed retired retail components/tests and the legacy client-side billing/format helpers, rebranded `index.html`, and removed remote Google Fonts so no font or image is fetched at runtime.
-- Removed the temporary `docs/PLAN.md` after the conversion and updated README, setup, API, licensing and screenshot notes.
-- Added public QR ordering: signed, expiring, rotatable table tokens; unauthenticated menu/order/status routes with server-owned prices, privacy filtering, IP/table rate limits and JSON content-type enforcement. Guest orders wait in `pending_confirmation` for waiter confirmation unless an admin enables auto-confirm; kitchen, billing, item changes and reports ignore them until then.
-- Added a mobile-first `/m/:token` guest page and a staff **Table QR** screen that renders and prints local QR codes with pinned `qrcode.react`. Updated `docs/api.md`, README and environment docs; added public-route and schema-v4 tests.
-- Replaced the retail API with the restaurant backend: nine domain routers (`tables`, `menu`, `orders`, `kitchen`, `billing`, `inventory`, `reports`, `users`, `settings`) mounted by `server/app.ts`.
-- Added five-role permissions (`admin`, `manager`, `waiter`, `kitchen`, `cashier`), a server-owned order state machine with per-item events and table status recomputation, HMAC-signed table QR tokens with rotation, and a JSON content-type guard for mutating requests.
-- Billing is now fully server-owned: clamped discounts with a cashier cap (`MAX_CASHIER_DISCOUNT_PERCENT`), VAT/service charge from settings, equal/per-item splits, atomic bill numbers, payment coverage checks and automatic table release.
-- Serving an item deducts recipe ingredients in one IMMEDIATE transaction, writes `stock_movements`, and returns `409` with a `lowStock` flag when stock is short.
-- Added the restaurant schema (v4): floors/tables, menu items and variants, ingredients and recipes, orders/items/payments, bill splits, item events and table transfers. `docs/api.md`, README, setup docs and endpoint tests were updated.
-- Fixed broken product and avatar images in production: the demo JPEGs moved from `src/assets/images/` to `public/images/` and all stored URLs now use `/images/<filename>`, which Vite copies into `dist/`. The obsolete `src/assets` copy plugin was removed from `vite.config.ts`.
-- Added an idempotent startup migration in `server/migrate.ts` that rewrites legacy `/src/assets/images/...` values in `products.image` and `users.avatar` for already-deployed databases, with unit tests.
-- Renamed the seed source from `src/data/mockData.ts` to `src/data/seedData.ts` and updated the seeders, generated `docs/seed.sql`, and setup docs.
-- Normalized `build:server` to an explicit esbuild command using `--packages=external`, keeping `better-sqlite3` and `bcrypt` loaded from `node_modules` at runtime.
-- Reports date presets now use the visitor's local date at runtime (7/14/30 days ending today) instead of fixed 2026 dates; the formatter lives in `src/utils/dates.ts` with unit tests.
-- Product preset image paths were moved to `src/data/productImages.ts`; `AddProductView` no longer imports the seed module.
-
-## 1.0.0 — 2026-11-23
+First release of PayNest Restaurant as a single-service table-management application.
 
 ### Added
 
-- Real authentication: `POST /api/auth/login` checks bcrypt password hashes, signs a JWT, sets the httpOnly `paynest_token` cookie, and `/api/auth/me` restores the session.
-- Role-based access control with a 30-permission backend map in `server/permissions.ts`, enforced by `requireAuth` and `requirePermission` in `server/middleware.ts`.
-- SQLite schema in `docs/schema.sql`, applied automatically by `server/db.ts`, with WAL mode and demo seeding when the `users` table is empty.
-- Component refactor: extracted `ProductTable`, `CartPanel`, and `BarcodeInput`, and moved billing helpers into `src/utils/billing.ts`.
-- Tests for billing, API authentication/RBAC, and the refactored components.
-- Setup, database, licensing, and screenshot guidance in `HowToSetup.md`, `docs/schema.sql`, `LICENSE-NOTE.md`, and `docs/screenshots/README.md`.
-- Native-module smoke test (`scripts/smoke-native.mjs` / `npm run smoke`) for bcrypt and better-sqlite3.
-- Staged, timestamped production startup logs, a public `GET /api/health` check, and a Render service definition in `render.yaml`.
-- Multi-stage [Dockerfile](./Dockerfile), [docker-compose.yml](./docker-compose.yml), and `.dockerignore` for a containerised single-service deployment.
-- Machine-generated [docs/seed.sql](./docs/seed.sql) via `npm run seed:sql`, and a complete endpoint/permission reference in [docs/api.md](./docs/api.md).
-
-### Changed
-
-- The frontend now calls the Express API through `src/api/client.ts` instead of mutating local mock state; the seed source consumed by `server/seed.ts` is now `src/data/seedData.ts`.
-- Toolchain versions were aligned, `engines` and `.nvmrc` were added for Node 20.19.0, `.npmrc` was removed, and `npm ci` passes without `legacy-peer-deps`.
-- Dependency cleanup removed unused direct packages and changed CORS configuration to use `CORS_ORIGIN`. `better-sqlite3` is pinned to `12.11.1` (Node 20/22 supported), `jsdom` to `28.0.0`, and `concurrently` to `9.2.5` for Node 20 compatibility; `esbuild` is now a direct devDependency.
-- Production no longer runs TypeScript through `tsx`: `npm run build` bundles the server into `dist-server/index.js` with esbuild and `npm start` runs plain Node. Frontend build plugins moved to devDependencies.
-- Project paths are resolved from the project root (or `PAYNEST_ROOT`) instead of the shell working directory; `PORT` defaults to `3000` and the DB default is `./data/pos.db`.
-- Seeding is opt-in: demo rows are created only when `SEED_DEMO_DATA=true` and the `users` table is empty. Demo credentials come from the environment, with a random password generated and logged once when a password variable is absent. Seed dates are relative to the current date, and the seed set contains 25 products and 10 invoices.
-- All direct dependencies are pinned to exact versions; the unused `@testing-library/dom` direct pin was removed and `vite` was added explicitly.
-- Sales list/detail and sale creation load products and line items in batched queries instead of one query per row. Dynamic `nextNumber` SQL and the seed delete loop were replaced with fixed SQL strings. The schema adds unique SKU/barcode constraints and status/due indexes.
-
-### Deployment
-
-- [render.yaml](./render.yaml) defines a Singapore free-plan Node web service using `npm ci --include=dev && npm run build`, `npm run start`, and `/api/health` as its health check.
-- `HowToSetup.md` documents the exact Render steps, free-plan sleep and ephemeral-filesystem limits, and using a persistent `DB_PATH` such as `/var/data/pos.db`.
+- Staff workspace with sign-in, dashboard, floor/table map, waiter order entry, kitchen display, menu management, billing, ingredient inventory, reports, users, settings and table QR screens.
+- Separate guest menu page at `/m/:token` with category browsing, variants, cart creation, order placement and status polling. No staff session or staff navigation is loaded on that page.
+- Signed table QR codes with rotation and configurable lifetime; printed codes are invalidated when a table's QR version changes.
+- Public, rate-limited QR menu/order/status endpoints that validate every request, resolve prices on the server and expose only the published menu plus that table's own order status.
+- Server-owned order workflow: guest orders wait in `pending_confirmation`, a waiter confirms them (or an admin enables auto-confirm), kitchen moves items `new → preparing → ready`, and serving `ready → served` deducts recipe stock.
+- Billing with server-computed subtotal, VAT, service charge, discounts, dues, totals and split plans; cashier discounts are capped and payment methods are recorded without a gateway.
+- Ingredient master data, per-item recipes, manual stock adjustments, low-stock alerts and a stock ledger.
+- Five roles (`admin`, `manager`, `waiter`, `kitchen`, `cashier`) with a single backend permission map and permission-derived navigation.
+- Integration tests built with Vitest and Supertest, component/helper tests, a native-module smoke test and a CI workflow.
+- Multi-stage Docker image, optional-`.env` Compose deployment, Render service definition and Dependabot configuration.
 
 ### Security
 
-- Passwords are stored only as bcrypt hashes; user creation and updates hash with cost 10.
-- API role and permission checks are authoritative; frontend hiding is cosmetic only.
-- Secrets are supplied through backend environment variables; no `VITE_*` variables are used and `.env.example` contains placeholders only. A missing development `JWT_SECRET` now generates a random per-process secret instead of falling back to a shared value; production requires a secret of at least 32 characters.
-- User management requires both `users:*` permissions and the `admin` role. Users cannot change their own role/status or delete themselves, the last active admin cannot be removed, and unknown roles are rejected before any database write. Deactivated users' tokens are rejected on every request.
-- Final `npm audit` result: `found 0 vulnerabilities` (0 critical, 0 high, 0 moderate, 0 low, 0 info). No overrides were needed.
+- Passwords are bcrypt hashes; JWTs are stored in an httpOnly `SameSite=Strict` cookie that becomes `secure` in production.
+- Every `/api` route except login, health and the signed public QR routes passes through authentication and a backend permission or role check.
+- Mutating `/api` requests require `application/json`; public routes are signed, scoped to one table, validated with Zod and rate limited.
+- All money and counters are computed on the server. Clients cannot submit totals, VAT, service charge, paid amounts or sequence values, and discounts are clamped.
+- SQL statements are parameterized. Foreign keys are enabled, destructive user guards protect the last active admin and no secret is read from the browser through `VITE_*`.
+- Production startup rejects missing or short JWT/QR signing secrets. `npm audit` and `npm audit --omit=dev --audit-level=high` both reported zero vulnerabilities on 2026-11-24; see [docs/security-audit.md](./docs/security-audit.md).
+
+### Database
+
+- Schema version 4 in [docs/schema.sql](./docs/schema.sql) with primary and foreign keys, explicit delete rules, unique/check constraints, lookup indexes and WAL mode.
+- Money is stored as INTEGER minor units (paisa); percentages are REAL values from `0..100`.
+- Orders own bill numbers and totals; payments record only method and amount. Historical snapshots are kept on financial tables.
+- `number_sequences` and `schema_version` support atomic numbering and idempotent migrations. Number allocation and row insertion use separate `IMMEDIATE` transactions with unique retries, so gaps are possible but duplicates are not.
+- Recipes are stored per menu item; serving an item writes `stock_movements` and recomputes order/table status in one transaction.
+- [docs/seed.sql](./docs/seed.sql) is generated from [src/data/seedData.ts](./src/data/seedData.ts); demo identities and relative dates come from environment-driven seed code.
+
+### Docs
+
+- Rewrote [README.md](./README.md) and [HowToSetup.md](./HowToSetup.md) for the restaurant product, including demo accounts, roles, QR flow, environment variables and Node/Docker installation.
+- Completed [docs/api.md](./docs/api.md), added [docs/security-audit.md](./docs/security-audit.md) and updated the screenshot manifest in [docs/screenshots/README.md](./docs/screenshots/README.md).
+- Updated [AGENTS.md](./AGENTS.md), [CLAUDE.md](./CLAUDE.md), [LICENSE-NOTE.md](./LICENSE-NOTE.md) and [metadata.json](./metadata.json) for the current architecture, dependencies and branding.
+- Removed obsolete delivery files, stale product references and unused legacy code from the tracked tree.

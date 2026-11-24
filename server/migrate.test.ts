@@ -106,7 +106,7 @@ describe('restaurant schema migration', () => {
     second.close();
   });
 
-  it('rejects a legacy retail database instead of overwriting it', () => {
+  it('rejects a non-restaurant database instead of overwriting it', () => {
     const db = freshDb();
     db.exec('CREATE TABLE products (id TEXT PRIMARY KEY, name TEXT);');
     expect(() => runMigrations(db)).toThrow(/not the restaurant schema/);

@@ -1,11 +1,16 @@
 node_modules
-pos
 dist
 dist-server
+coverage
 .env
+.env.*
+!.env.example
 *.db
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 .git
 data
 docs/screenshots

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: paynest-pos
+    name: paynest-restaurant
     runtime: node
     region: singapore
     plan: free
@@ -16,6 +16,12 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 1d
+      - key: QR_TOKEN_SECRET
+        generateValue: true
+      - key: QR_TOKEN_TTL_SECONDS
+        value: 31536000
+      - key: MAX_CASHIER_DISCOUNT_PERCENT
+        value: 10
       - key: DB_PATH
         value: ./data/pos.db
       - key: CORS_ORIGIN

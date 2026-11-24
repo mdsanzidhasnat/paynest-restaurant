@@ -58,7 +58,7 @@ Money fields are INTEGER minor units (paisa). Percentages are REAL values in `0.
 | `GET` | `/floors` | `tables:read` | — | `200` floors ordered by `sort_order` |
 | `POST` | `/floors` | `tables:write` | `{ name, sortOrder? }` | `201` floor |
 | `GET` | `/map` | `tables:read` | — | `200` floors each with their tables |
-| `GET` | `/` | `tables:read` | `?status=free\|occupied\|bill_pending` | `200` tables with `floorName` |
+| `GET` | `/` | `tables:read` | `?status=free\|occupied\|bill_pending` | `200` tables with raw `floor_name` (the browser client maps it to `floorName`) |
 | `GET` | `/:id` | `tables:read` | — | `200` table |
 | `POST` | `/` | `tables:write` | `{ floorId, number, seats?, x?, y?, shape? }` | `201` table |
 | `PUT` | `/:id` | `tables:write` | Any of the create fields | `200` table |
@@ -133,7 +133,7 @@ Orders created by a waiter start at `new`; public QR orders start at `pending_co
 
 | Method | Path | Permission | Body | Response |
 |---|---|---|---|---|
-| `GET` | `/tickets` | `kitchen:read` | — | `200` active items with table, floor, order number and `age_minutes` |
+| `GET` | `/tickets` | `kitchen:read` | — | `200` active items with table, floor, order number and raw `age_minutes` (the browser client maps it to `ageMinutes`) |
 | `GET` | `/orders/:id` | `kitchen:read` | — | `200` order with items and status events |
 | `PATCH` | `/items/:id/status` | `kitchen:transition` | `{ status: 'new'\|'preparing'\|'ready' }` | `200 { item, lowStock, orderStatus }` |
 
@@ -173,7 +173,7 @@ Recipes are per menu item, not per variant. Stock below zero is rejected with `4
 
 ## Reports — `/api/reports`
 
-Every report requires `reports:read` (admin and manager) and uses indexed queries with `ORDER BY ... LIMIT ? OFFSET ?`. Unconfirmed guest orders are excluded from open-order counts and item rankings.
+Every report requires `reports:read` (admin and manager) and uses indexed queries. `/daily-sales`, `/top-items` and `/table-turnover` accept `limit`/`offset` and apply `ORDER BY ... LIMIT ? OFFSET ?`; `/dashboard`, `/low-stock` and `/` are fixed summaries. Unconfirmed guest orders are excluded from open-order counts and item rankings.
 
 | Method | Path | Response |
 |---|---|---|

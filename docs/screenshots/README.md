@@ -1,17 +1,17 @@
-# Screenshots to add
+# Screenshots
 
-This folder is reserved for the marketplace/README screenshots. The image files are intentionally not committed yet.
-
-Add these seven files before publishing the listing:
+Add these nine PNG files to this folder before publishing the listing. The files are not committed with the source; the root [README.md](../../README.md) links to these exact paths.
 
 | File | Screen to capture |
 |---|---|
 | `login.png` | Staff sign-in |
-| `dashboard.png` | Dashboard KPIs and open-order alerts |
+| `dashboard.png` | Dashboard with KPIs and open-order alerts |
 | `tables.png` | Floor tabs and table status cards |
-| `waiter-order.png` | Waiter order entry with a running ticket and pending QR orders |
-| `kitchen.png` | Kitchen display columns and elapsed timers |
-| `billing.png` | Bill summary and payment form |
+| `waiter-order.png` | Menu categories, variants and the running order |
+| `kitchen.png` | Kitchen columns, timers and status actions |
+| `qr-menu.png` | Guest menu on a phone-sized viewport |
+| `billing.png` | Bill summary, discount, split and payment controls |
+| `inventory.png` | Ingredient list with low-stock state |
 | `reports.png` | Reports with a runtime date preset |
 
-The root [README.md](../../README.md) already references these paths. Use PNG files with these exact names so the gallery renders without further edits.
+Use PNG with the exact names above. Resize captures so they remain legible in the README gallery.

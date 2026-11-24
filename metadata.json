@@ -1,6 +1,6 @@
 {
-  "name": "PayNest POS",
-  "description": "Point of sale and retail management for restaurants, shops, and supermarkets.",
+  "name": "PayNest Restaurant",
+  "description": "Table-service restaurant management with QR menu ordering, waiter orders, kitchen display, billing, ingredient stock and reports.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
