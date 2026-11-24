@@ -2,7 +2,10 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import {CustomerMenuPage} from './components/customer/CustomerMenuPage.tsx';
 import {AuthProvider} from './auth/AuthContext.tsx';
+import {registerServiceWorker} from './utils/pwa.ts';
 import './index.css';
+
+registerServiceWorker();
 
 // Guest QR links use a separate render tree: no staff session, no staff nav.
 const guestMatch = window.location.pathname.match(/^\/m\/([^/]+)\/?$/);

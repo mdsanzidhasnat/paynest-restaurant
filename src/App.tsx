@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from './api/client';
 import { useAuth } from './auth/AuthContext';
 import { allowedSections, homeForRole } from './utils/navigation';
+import { SW_UPDATE_EVENT } from './utils/pwa';
 import type {
   Ingredient,
   MenuItem,
@@ -17,6 +18,7 @@ import type {
 } from './types/domain';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
+import { Notice } from './components/common/Notice';
 import { DashboardView } from './components/views/DashboardView';
 import { TablesView } from './components/views/TablesView';
 import { WaiterOrderView } from './components/views/WaiterOrderView';
@@ -78,8 +80,15 @@ export default function App() {
   const [shellLoaded, setShellLoaded] = useState(false);
   const [shellError, setShellError] = useState('');
   const [activeOrder, setActiveOrder] = useState<RestaurantOrder | null>(null);
+  const [swUpdateAvailable, setSwUpdateAvailable] = useState(false);
 
   const sections = useMemo(() => allowedSections(can), [can]);
+
+  useEffect(() => {
+    const handleUpdate = () => setSwUpdateAvailable(true);
+    window.addEventListener(SW_UPDATE_EVENT, handleUpdate);
+    return () => window.removeEventListener(SW_UPDATE_EVENT, handleUpdate);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -231,10 +240,22 @@ export default function App() {
         />
 
         <main className="flex-1 p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
-          {banner && (
-            <div className="mb-4 px-3.5 py-2.5 rounded-[10px] bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] text-[13px] font-medium">
-              {banner}
-            </div>
+          {banner && <Notice className="mb-4 px-3.5 py-2.5">{banner}</Notice>}
+          {swUpdateAvailable && (
+            <Notice
+              className="mb-4 px-3.5 py-2.5"
+              action={
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="shrink-0 rounded-[8px] border border-[#FDE68A] bg-white/70 px-2.5 py-1 text-[12px] font-semibold hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5]"
+                >
+                  Refresh
+                </button>
+              }
+            >
+              New version available, refresh
+            </Notice>
           )}
 
           {activeSection === 'dashboard' && <DashboardView onNavigate={navigate} />}

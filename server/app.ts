@@ -24,7 +24,20 @@ export function createApp() {
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
-  app.use(helmet());
+  // Keep every Helmet default and only add the PWA sources. Static files are
+  // served same-origin, so the worker and manifest are allowed by 'self'.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'manifest-src': ["'self'"],
+          'worker-src': ["'self'"],
+        },
+      },
+    })
+  );
   // CORS only governs cross-origin API access. Static files are served
   // same-origin and must never be blocked by the Origin allowlist.
   app.use(

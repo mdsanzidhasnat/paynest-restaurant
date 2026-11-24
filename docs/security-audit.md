@@ -18,5 +18,6 @@ Both commands were run from the repository root against the committed `package-l
 - Mutating `/api` requests require `Content-Type: application/json`; secrets are backend-only environment variables, never `VITE_*`.
 - Public QR routes are signed, scoped to one table, rate limited and validate every request with Zod.
 - Money totals, VAT, service charge, discounts and dues are calculated on the server; clients send only menu selections, quantities and a discount choice.
+- The production service worker caches only local static shell/assets in a versioned cache. It bypasses `/api` entirely (including signed `/api/public` routes), never serves a cached API response, and keeps missing `/assets` requests as real `404`s. Helmet defaults are retained with `manifest-src 'self'` and `worker-src 'self'` added.
 
 Re-run `npm audit` after any dependency change and update this file with the new date and result.

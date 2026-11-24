@@ -10,6 +10,28 @@ import express, { type Express } from 'express';
 export function mountStaticFiles(app: Express, distDir: string): void {
   if (!fs.existsSync(distDir)) return;
 
+  // The worker and its routing script must be rechecked on every navigation:
+  // a long-lived static cache could otherwise keep an old worker installed.
+  for (const workerFile of ['sw.js', 'sw-routing.js']) {
+    app.get(`/${workerFile}`, (_req, res) => {
+      const filePath = path.join(distDir, workerFile);
+      if (!fs.existsSync(filePath)) {
+        res.status(404).type('text/plain').send('Worker not found.');
+        return;
+      }
+      res.set('Cache-Control', 'no-cache').type('application/javascript').sendFile(filePath);
+    });
+  }
+
+  app.get('/manifest.webmanifest', (_req, res) => {
+    const filePath = path.join(distDir, 'manifest.webmanifest');
+    if (!fs.existsSync(filePath)) {
+      res.status(404).type('text/plain').send('Manifest not found.');
+      return;
+    }
+    res.type('application/manifest+json').sendFile(filePath);
+  });
+
   app.use(express.static(distDir));
   app.use('/assets', (_req, res) => {
     res.status(404).type('text/plain').send('Asset not found.');

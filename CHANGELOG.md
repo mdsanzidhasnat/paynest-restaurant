@@ -22,6 +22,7 @@ First release of PayNest Restaurant as a single-service table-management applica
 - Billing with server-computed subtotal, VAT, service charge, discounts, dues, totals and split plans; cashier discounts are capped and payment methods are recorded without a gateway.
 - Ingredient master data, per-item recipes, manual stock adjustments, low-stock alerts and a stock ledger.
 - Five roles (`admin`, `manager`, `waiter`, `kitchen`, `cashier`) with a single backend permission map and permission-derived navigation.
+- Installable PWA: local manifest, generated 192/512/maskable icons, a production-only versioned service worker that caches only static shell/assets and never `/api`, an offline fallback page and a profile-menu install action with an iOS hint.
 - Integration tests built with Vitest and Supertest, component/helper tests, a native-module smoke test and a CI workflow.
 - Multi-stage Docker image, optional-`.env` Compose deployment, Render service definition and Dependabot configuration.
 

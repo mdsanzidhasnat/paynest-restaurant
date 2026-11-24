@@ -18,6 +18,7 @@
     "clean": "node scripts/clean.mjs",
     "seed": "tsx server/seed-cli.ts",
     "seed:sql": "tsx scripts/generate-seed-sql.ts",
+    "icons:generate": "node scripts/generate-icons.mjs",
     "smoke": "node scripts/smoke-native.mjs",
     "lint": "tsc --noEmit",
     "test": "vitest run"

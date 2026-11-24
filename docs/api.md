@@ -208,3 +208,18 @@ Guards: an admin cannot change their own role, deactivate themselves, or delete 
 | `GET` | `/invoice` | `invoice-settings:read` (all roles) | — | `200` branded subset for receipt rendering |
 
 VAT and service-charge percentages come from this singleton row and are applied by the server when computing bills; no client request may override them. `autoConfirmPublicOrders` is optional on `PUT` (omitting it leaves the flag unchanged) and is admin-only, like all settings writes. When enabled, public QR orders skip waiter confirmation and enter the kitchen queue as `new`.
+
+## Static and PWA assets (not `/api`)
+
+The built SPA and its PWA files are served by [server/static.ts](../server/static.ts) after all API middleware. They never pass through `/api` CORS, the JSON guard or authentication.
+
+| Path | Content type | Notes |
+|---|---|---|
+| `/manifest.webmanifest` | `application/manifest+json` | Install metadata; linked from `index.html` |
+| `/sw.js` | `application/javascript` | `Cache-Control: no-cache` so browsers check for worker updates |
+| `/sw-routing.js` | `application/javascript` | `Cache-Control: no-cache`; imported by `sw.js` |
+| `/offline.html` | `text/html` | Navigation fallback; states that live orders need a connection |
+| `/icons/*.png` | `image/png` | Locally generated 192, 512 and maskable 512 icons |
+| `/assets/*` | Bundle types | Missing files return a real `404`, never the SPA shell |
+
+Helmet's default CSP is kept and extended with `manifest-src 'self'` and `worker-src 'self'` in [server/app.ts](../server/app.ts). The service worker handles only same-origin navigations and static assets under `/`, `/index.html`, `/assets/*`, `/images/*`, `/icons/*`, the manifest and the offline page. Requests under `/api` (including `/api/public`) are never intercepted, cached or served from a worker cache; the worker posts a `PAYNEST_SW_UPDATED` message to open windows when a new version activates. Missing `/assets` responses stay 404s because only successful network responses are cached.

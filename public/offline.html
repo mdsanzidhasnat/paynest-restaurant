@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#4F46E5" />
+    <title>Offline — PayNest Restaurant</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #F6F8FB;
+        color: #111827;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      main {
+        width: 100%;
+        max-width: 420px;
+        padding: 32px 28px;
+        text-align: center;
+        background: #FFFFFF;
+        border: 1px solid #E6EAF0;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(17, 24, 39, 0.04);
+      }
+      .mark {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 16px;
+        border-radius: 12px;
+        background: #4F46E5;
+        color: #FFFFFF;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 48px;
+        letter-spacing: 0.02em;
+      }
+      h1 { margin: 0; font-size: 20px; font-weight: 700; }
+      p { margin: 10px 0 0; color: #4B5563; font-size: 14px; line-height: 1.6; }
+      a {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 9px 16px;
+        border-radius: 9px;
+        background: #4F46E5;
+        color: #FFFFFF;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a:hover { background: #4338CA; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">PN</div>
+      <h1>You’re offline</h1>
+      <p>
+        Live orders need a connection. Reconnect and try again to place an order
+        or check its status; orders and the menu are not available offline.
+      </p>
+      <a href="/">Try again</a>
+    </main>
+  </body>
+</html>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { Save } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
 import { ErrorState, LoadingState } from '../common/AsyncState';
+import { Notice } from '../common/Notice';
 import type { RestaurantSettings } from '../../types/domain';
 
 interface SettingsViewProps {
@@ -79,9 +80,9 @@ export function SettingsView({ onSaved }: SettingsViewProps) {
 
       {error && <ErrorState message={error} />}
       {notice && (
-        <p className="rounded-[10px] border border-[#A7F3D0] bg-[#ECFDF5] px-4 py-2.5 text-[13px] font-medium text-[#047857]">
+        <Notice tone="green" className="px-4 py-2.5">
           {notice}
-        </p>
+        </Notice>
       )}
 
       <section className="rounded-[12px] border border-[#E6EAF0] bg-white p-6">

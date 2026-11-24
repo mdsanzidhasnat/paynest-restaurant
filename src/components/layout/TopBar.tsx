@@ -12,6 +12,7 @@ import {
   ChevronRight,
   LogOut,
   Settings,
+  Download,
 } from 'lucide-react';
 import type {
   Ingredient,
@@ -47,6 +48,19 @@ function todayLabel(): string {
   });
 }
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+function isIosDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
 export const TopBar: React.FC<TopBarProps> = ({
   onNavigate,
   onOpenMobileMenu,
@@ -66,6 +80,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [iosDevice] = useState(isIosDevice);
 
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -85,6 +101,15 @@ export const TopBar: React.FC<TopBarProps> = ({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleInstallAvailable = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', handleInstallAvailable);
+    return () => window.removeEventListener('beforeinstallprompt', handleInstallAvailable);
   }, []);
 
   const openOrders = orders.filter(
@@ -127,6 +152,17 @@ export const TopBar: React.FC<TopBarProps> = ({
   function closeSearch() {
     setSearchOpen(false);
     setSearchQuery('');
+  }
+
+  async function installApp() {
+    if (!installPrompt) return;
+    try {
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+    } finally {
+      setInstallPrompt(null);
+      setProfileOpen(false);
+    }
   }
 
   return (
@@ -389,6 +425,28 @@ export const TopBar: React.FC<TopBarProps> = ({
 
           {profileOpen && (
             <div className="absolute right-0 top-[48px] w-[190px] bg-white border border-[#E6EAF0] rounded-[12px] shadow-lg py-1.5 z-50">
+              {installPrompt && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void installApp()}
+                    className="w-full px-3.5 py-2 text-left text-[13px] font-medium text-[#4F46E5] hover:bg-[#EEF2FF] inline-flex items-center gap-2.5"
+                  >
+                    <Download className="w-4 h-4" />
+                    Install app
+                  </button>
+                  <div className="my-1 border-t border-[#F1F4F8]" />
+                </>
+              )}
+              {!installPrompt && iosDevice && (
+                <>
+                  <p className="px-3.5 py-2 text-[12px] leading-snug text-[#6B7280]">
+                    <span className="font-medium text-[#111827]">Install on iOS:</span> Share &gt; Add
+                    to Home Screen
+                  </p>
+                  <div className="my-1 border-t border-[#F1F4F8]" />
+                </>
+              )}
               {canManageSettings && (
                 <>
                   <button

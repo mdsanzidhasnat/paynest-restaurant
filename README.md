@@ -28,6 +28,7 @@ Use your own `.env` values for a local demo; see [HowToSetup.md](./HowToSetup.md
 - **Menu management** — categories, items, variants, prices, availability, prep stations and a picker for local `/images/...` assets.
 - **Ingredient inventory** — ingredients, per-item recipes, stock ledger, manual adjustments, low-stock alerts and automatic deduction when an item is served.
 - **Reports and administration** — runtime 7/14/30-day presets, daily sales, top items, table turnover, admin-only users and settings, and an auto-confirm switch for guest orders.
+- **Installable web app** — local manifest and icons, a production-only service worker, an **Install app** action where the browser supports it, and an offline page that says live orders need a connection.
 
 All money is stored as INTEGER minor units (paisa) — `55000` means `550.00` — and all totals are calculated by [server/billing.ts](./server/billing.ts). Clients only display values returned by the API, formatting every amount through `formatMoney()` in [src/utils/money.ts](./src/utils/money.ts). Ingredient stock, recipe quantities and stock movements stay decimal numbers in the API, rounded to at most three decimals by [server/stock.ts](./server/stock.ts).
 
@@ -99,6 +100,12 @@ Foreign keys are enabled on every connection. Order and bill numbers are allocat
 7. Billing reads server totals, records payments and frees the table when the bill is paid.
 
 Public routes are rate limited and require `Content-Type: application/json` for mutations. Rotating a table's QR version invalidates every previously printed code. See [docs/api.md](./docs/api.md#public-qr-ordering--apipublic).
+
+## Progressive web app
+
+`npm run build` copies the manifest, offline page, worker, routing script and generated icons from [public/](./public/) into `dist/`. The worker is registered only in production builds. It caches the static shell, `/assets/*`, `/images/*`, `/icons/*`, the manifest and the offline page in a versioned cache, and deletes older caches when a new version activates. **Nothing under `/api`, including `/api/public`, is cached or replayed**: those requests bypass the worker and always hit the server. Failed navigations show [public/offline.html](./public/offline.html), which states that live orders need a connection rather than implying the app works offline.
+
+The **Install app** action appears in the profile menu only when the browser fires `beforeinstallprompt`; on iOS the menu shows **Share > Add to Home Screen** instead. Installability requires HTTPS in production (localhost is treated as secure) and a production build; `npm run dev` never registers the worker. Icons are generated from local drawing code with `npm run icons:generate` — no image dependency or remote asset is used. See [HowToSetup.md](./HowToSetup.md#installable-pwa-https) for deployment notes.
 
 ## Environment variables
 
