@@ -13,7 +13,7 @@ beforeAll(() => {
   distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'paynest-static-'));
   fs.mkdirSync(path.join(distDir, 'assets'));
   fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><html><body>PayNest</body></html>');
-  fs.writeFileSync(path.join(distDir, 'assets', 'app.js'), 'console.log("built");');
+  fs.writeFileSync(path.join(distDir, 'assets', 'app.js'), 'export const built = true;');
   app = express();
   mountStaticFiles(app, distDir);
 });
