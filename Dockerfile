@@ -2,7 +2,7 @@
 
 # Multi-stage image: build the client and server with dev dependencies, then
 # ship only production dependencies plus the compiled output.
-FROM node:20.19.0-bookworm-slim AS build
+FROM node:26.13.0-bookworm-slim AS build
 WORKDIR /app
 
 # bcrypt and better-sqlite3 may need a native build when no prebuilt binary
@@ -18,7 +18,7 @@ COPY . .
 RUN npm run build
 RUN npm prune --omit=dev
 
-FROM node:20.19.0-bookworm-slim AS runtime
+FROM node:26.13.0-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     PORT=3000 \
     DB_PATH=/data/restaurant.db
