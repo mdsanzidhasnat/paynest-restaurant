@@ -21,7 +21,7 @@ RUN npm prune --omit=dev
 FROM node:20.19.0-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     PORT=3000 \
-    DB_PATH=/data/pos.db
+    DB_PATH=/data/restaurant.db
 WORKDIR /app
 
 RUN groupadd --gid 10001 paynest \

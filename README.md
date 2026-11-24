@@ -108,7 +108,7 @@ Only backend and build-time variables are used; no secret is read through `VITE_
 |---|---|---|
 | `JWT_SECRET` | Signing JWTs | Production requires 32+ characters; outside production an unset value generates a random per-process secret |
 | `JWT_EXPIRES_IN` | JWT lifetime | `8h` |
-| `DB_PATH` | SQLite file path | `./data/pos.db`, resolved from the project root |
+| `DB_PATH` | SQLite file path | `./data/restaurant.db`, resolved from the project root |
 | `PORT` | HTTP port | `3000` in production; dev API uses `3001` |
 | `CORS_ORIGIN` | Comma-separated allowed cross-origin clients | `http://localhost:3000,http://127.0.0.1:3000`; `CORS_ORIGINS` is a fallback. Same-origin always works |
 | `NODE_ENV` | Production cookies, JWT validation and login limit | Production-first; set by the compiled server when absent |

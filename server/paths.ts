@@ -29,5 +29,5 @@ export function getSchemaPath(): string {
 }
 
 export function getDefaultDbPath(): string {
-  return path.join(PROJECT_ROOT, 'data', 'pos.db');
+  return path.join(PROJECT_ROOT, 'data', 'restaurant.db');
 }

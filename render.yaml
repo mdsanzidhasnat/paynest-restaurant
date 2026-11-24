@@ -23,6 +23,6 @@ services:
       - key: MAX_CASHIER_DISCOUNT_PERCENT
         value: 10
       - key: DB_PATH
-        value: ./data/pos.db
+        value: ./data/restaurant.db
       - key: CORS_ORIGIN
         sync: false

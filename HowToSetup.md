@@ -5,7 +5,7 @@ This guide covers two complete install targets: a plain Node.js host and Docker 
 ## Prerequisites
 
 - Node.js `>=20.19.0` and npm `>=10`. The repository pins `20.19.0` in [.nvmrc](./.nvmrc) and declares the same range in [package.json](./package.json).
-- A writable directory for SQLite. The default is `./data/pos.db`, resolved from the project root unless `PAYNEST_ROOT` is set.
+- A writable directory for SQLite. The default is `./data/restaurant.db`, resolved from the project root unless `PAYNEST_ROOT` is set.
 - On Linux, install `python3`, `make` and `g++` if prebuilt binaries for `bcrypt` or `better-sqlite3` are unavailable. On macOS, install Xcode Command Line Tools. On Windows, use WSL2 with the Linux toolchain for the smoothest native-module install.
 - Ports `3000` (staff app / production API) and `3001` (development API) available.
 
@@ -75,7 +75,7 @@ For development with hot reload, run `npm run dev`; Vite serves port `3000` and 
    docker compose up --build -d
    ```
 
-3. The container publishes `3000:3000`. SQLite lives at `/data/pos.db` inside the container and is persisted by the named volume `paynest-data`. Removing the container does not remove that volume; `docker compose down -v` does.
+3. The container publishes `3000:3000`. SQLite lives at `/data/restaurant.db` inside the container and is persisted by the named volume `paynest-data`. Removing the container does not remove that volume; `docker compose down -v` does.
 
 4. Check health and logs:
 
@@ -156,7 +156,7 @@ npm audit
 - Health check: `/api/health`
 - Node `20.19.0`, production environment and generated `JWT_SECRET`/`QR_TOKEN_SECRET`.
 
-Set `CORS_ORIGIN` only if a separate frontend origin calls the API; same-origin requests always work. The free plan sleeps after inactivity and its filesystem is ephemeral, so SQLite under `./data/pos.db` resets on redeploy. Use a persistent disk and set `DB_PATH` to a path on that disk for real data.
+Set `CORS_ORIGIN` only if a separate frontend origin calls the API; same-origin requests always work. The free plan sleeps after inactivity and its filesystem is ephemeral, so SQLite under `./data/restaurant.db` resets on redeploy. Use a persistent disk and set `DB_PATH` to a path on that disk for real data.
 
 ### VPS or other Node host
 
