@@ -37,6 +37,24 @@ export function getPort(): number {
   return Number.isFinite(value) && value > 0 ? value : 3000;
 }
 
+/** Cashier discounts are capped at this percentage of the bill subtotal. */
+export function getMaxCashierDiscountPercent(): number {
+  const value = Number(process.env.MAX_CASHIER_DISCOUNT_PERCENT?.trim() || '10');
+  return Number.isFinite(value) && value >= 0 && value <= 100 ? value : 10;
+}
+
+/** Backend-only secret for signed table QR tokens (used by the next public phase). */
+export function getQrTokenSecret(): string {
+  const secret = process.env.QR_TOKEN_SECRET?.trim();
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || secret.length < 32) {
+      throw new Error('QR_TOKEN_SECRET must be set in production and contain at least 32 characters.');
+    }
+    return secret;
+  }
+  return secret || 'development-only-qr-secret-change-me';
+}
+
 export function getAllowedOrigins(): string[] {
   const configured = (process.env.CORS_ORIGIN ?? process.env.CORS_ORIGINS)?.split(',')
     .map((origin) => origin.trim())

@@ -26,12 +26,12 @@ function freshDb(file = ':memory:'): Database.Database {
 describe('restaurant schema migration', () => {
   it('creates the full schema from docs/schema.sql on an empty database', () => {
     const db = freshDb();
-    expect(runMigrations(db)).toBe(1);
+    expect(runMigrations(db)).toBe(SCHEMA_VERSION);
     const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map((row) => row.name);
-    for (const table of ['users', 'settings', 'floors', 'tables', 'menu_categories', 'menu_items', 'item_variants', 'ingredients', 'recipe_items', 'orders', 'order_items', 'payments', 'stock_movements', 'daily_sales', 'schema_version', 'number_sequences']) {
+    for (const table of ['users', 'settings', 'floors', 'tables', 'menu_categories', 'menu_items', 'item_variants', 'ingredients', 'recipe_items', 'orders', 'order_items', 'payments', 'stock_movements', 'bill_splits', 'order_item_events', 'table_transfers', 'daily_sales', 'schema_version', 'number_sequences']) {
       expect(names).toContain(table);
     }
-    const version = db.prepare('SELECT version FROM schema_version').get() as { version: number };
+    const version = db.prepare('SELECT MAX(version) AS version FROM schema_version').get() as { version: number };
     expect(version.version).toBe(SCHEMA_VERSION);
     db.close();
   });
@@ -39,7 +39,7 @@ describe('restaurant schema migration', () => {
   it('is idempotent across repeated calls and restarts', () => {
     const dbPath = path.join(tempDir, 'test.sqlite');
     const first = freshDb(dbPath);
-    expect(runMigrations(first)).toBe(1);
+    expect(runMigrations(first)).toBe(SCHEMA_VERSION);
     first.close();
 
     const second = freshDb(dbPath);

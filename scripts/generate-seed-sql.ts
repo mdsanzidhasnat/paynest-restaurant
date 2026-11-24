@@ -245,7 +245,10 @@ lines.push(
 lines.push(
   insert('number_sequences', ['name', 'last_value'], [['order', orderRows.length], ['bill', orderRows.length]])
 );
-lines.push('INSERT INTO schema_version (version, description) VALUES (1, \'initial restaurant schema and number sequences\');');
+lines.push(`INSERT OR IGNORE INTO schema_version (version, description) VALUES
+  (1, 'initial restaurant schema and number sequences'),
+  (2, 'bill splits, item status events, table transfers and cancel reason'),
+  (3, 'one stock movement per ingredient per served item');`);
 lines.push('COMMIT;', '');
 
 const outputPath = new URL('../docs/seed.sql', import.meta.url);

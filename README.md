@@ -3,8 +3,9 @@
 Restaurant Management System is a table-service POS in progress: floor/table management, QR menu
 ordering, waiter orders, a kitchen display, server-computed billing, ingredient stock and reports.
 It pairs a React 19 / TypeScript front end with an Express API and SQLite persistence. The
-database layer is complete; API and UI screens are being replaced from the legacy retail app in
-phases described in `docs/PLAN.md`.
+database layer and the authenticated backend API are complete; UI screens are being replaced from
+the legacy retail app in phases described in `docs/PLAN.md`. Public QR ordering routes are the next
+backend phase.
 
 **Live demo:** [Paste your live demo URL here] — replace this placeholder with your deployed URL before publishing.
 
@@ -26,17 +27,21 @@ See [HowToSetup.md](./HowToSetup.md#demo-users) for the password used by your ow
 
 ## Features
 
-> Conversion status: the items below describe legacy retail screens that are still present in the
-> frontend and are being replaced phase by phase. The restaurant database, server-owned billing,
-> migrations, atomic numbering and five-role seed are already implemented; see `docs/PLAN.md`.
+> Conversion status: the restaurant database and all authenticated backend endpoints are
+> implemented and documented in [docs/api.md](./docs/api.md). The legacy retail screens listed
+> below are still present in the frontend and are being replaced phase by phase; see
+> `docs/PLAN.md`. Public QR menu/ordering is the next backend phase.
 
-- **Real sign-in and roles** — email/password login is checked with bcrypt, a JWT is stored in an httpOnly cookie, and permissions are enforced on the server. See [server/routes/auth.ts](./server/routes/auth.ts), [server/auth.ts](./server/auth.ts), and [server/permissions.ts](./server/permissions.ts).
-- **Point-of-sale checkout** — product picker, cart quantities, discount, VAT, payment methods (`Cash`, `bKash`, `Nagad`, `Card`), keyboard-wedge barcode scanning, in-memory held orders, and sale creation that updates stock and customer dues. See [PosTerminalView.tsx](./src/components/views/PosTerminalView.tsx), [CartPanel.tsx](./src/components/common/CartPanel.tsx), and [commerce.ts](./server/routes/commerce.ts).
-- **Products, categories, and inventory** — product add/edit/delete, CSV import/export, search and stock filters, low-stock badge, and restock modal. Categories have a list and add flow. See [ProductsView.tsx](./src/components/views/ProductsView.tsx), [InventoryView.tsx](./src/components/views/InventoryView.tsx), and [catalog.ts](./server/routes/catalog.ts).
-- **Customers and dues** — customer directory with totals, add/edit/delete modals, due collection with `Cash`, `bKash`, or `Nagad`, and payment history. See [CustomersView.tsx](./src/components/views/CustomersView.tsx), [DueCollectionView.tsx](./src/components/views/DueCollectionView.tsx), and [parties.ts](./server/routes/parties.ts).
-- **Suppliers and purchases** — supplier list and payable settlement, purchase orders, receiving, payment recording, and deletion. See [SuppliersView.tsx](./src/components/views/SuppliersView.tsx), [PurchasesView.tsx](./src/components/views/PurchasesView.tsx), and [commerce.ts](./server/routes/commerce.ts).
-- **Sales, invoices, and reports** — sales history, invoice preview with browser print and standalone HTML download, mark-as-paid, dashboard KPIs and charts, reports views, and CSV/print export. See [SalesHistoryView.tsx](./src/components/views/SalesHistoryView.tsx), [InvoicePreviewView.tsx](./src/components/views/InvoicePreviewView.tsx), [DashboardView.tsx](./src/components/views/DashboardView.tsx), and [ReportsView.tsx](./src/components/views/ReportsView.tsx).
-- **Settings and staff** — store profile, tax and currency, invoice branding, payment methods, and staff user management. See [SettingsView.tsx](./src/components/views/SettingsView.tsx) and [admin.ts](./server/routes/admin.ts).
+New restaurant backend (live):
+
+- **Real sign-in and five roles** — bcrypt, JWT in an httpOnly `SameSite=Strict` cookie, and server-side permission checks for `admin`, `manager`, `waiter`, `kitchen` and `cashier`. See [auth.ts](./server/routes/auth.ts), [permissions.ts](./server/permissions.ts), and [middleware.ts](./server/middleware.ts).
+- **Tables and QR tokens** — floors, table map with server-owned status, and HMAC-signed table tokens with rotation. See [tables.ts](./server/routes/tables.ts) and [qr-token.ts](./server/qr-token.ts).
+- **Waiter orders and kitchen display** — atomic order numbers, price snapshots, transfers, cancellation with reason, and a `new → preparing → ready → served` state machine with per-item events. See [orders.ts](./server/routes/orders.ts), [kitchen.ts](./server/routes/kitchen.ts), and [order-state.ts](./server/order-state.ts).
+- **Billing** — server-only subtotals, clamped discounts (cashier cap via `MAX_CASHIER_DISCOUNT_PERCENT`), VAT/service charge from settings, equal/per-item splits, payment method selection only, and automatic table release when payments cover the total. See [billing.ts](./server/routes/billing.ts) and [billing.ts](./server/billing.ts).
+- **Menu and ingredients** — categories, items, variants, price permissions, availability toggle, per-item recipes, stock ledger, automatic deduction on serve, and low-stock reports. See [menu.ts](./server/routes/menu.ts) and [inventory.ts](./server/routes/inventory.ts).
+- **Reports, users and settings** — dashboard, daily sales, top items, table turnover, admin-only staff management with last-admin protection, and singleton restaurant settings. See [reports.ts](./server/routes/reports.ts), [users.ts](./server/routes/users.ts), and [settings.ts](./server/routes/settings.ts).
+
+Legacy frontend screens still present (to be replaced): point-of-sale checkout with barcode scanning and held orders, product/category screens, customers and dues, suppliers and purchases, sales history/invoice preview, dashboard/reports views, and store settings. They no longer have retail API routes; the restaurant endpoints above are the supported backend.
 
 The login screen includes a “Forgot password?” form, but it only shows a local confirmation message; no reset email or reset API exists. Held orders live in React memory only. The invoice “Download PDF” action writes an `.html` file.
 
@@ -83,7 +88,9 @@ SQLite is used through [server/db.ts](./server/db.ts). The schema in [docs/schem
 | Menu | `menu_categories`, `menu_items`, `item_variants` | Categories, prices, images, availability, prep station and variants |
 | Inventory | `ingredients`, `recipe_items`, `stock_movements` | Stock, thresholds, per-item recipes and the stock ledger |
 | Orders | `orders`, `order_items` | Atomic order/bill numbers, server-owned totals and item snapshots |
-| Payments | `payments` | Recorded payment method and amount for each paid order |
+| Payments | `payments`, `bill_splits` | Recorded payment method/amount and server-computed split plans |
+| Kitchen | `order_item_events` | Per-item status history used for kitchen timers and audit |
+| Tables | `table_transfers` | Server-owned history of waiter table transfers |
 | Reporting | `daily_sales` | Daily sales snapshots used by dashboard and reports |
 | Internals | `schema_version`, `number_sequences` | Idempotent migration tracking and atomic numbering counters |
 
@@ -103,7 +110,10 @@ SQLite is used through [server/db.ts](./server/db.ts). The schema in [docs/schem
 | `orders` | `id`, `order_number`, `bill_number`, `status`, totals, `payment_status`, `created_at` | `table_id → tables`, `opened_by → users` | both numbers unique, `idx_orders_table`, `idx_orders_opened_by`, `idx_orders_status`, `idx_orders_created_at` | `RESTRICT` |
 | `order_items` | `id`, `quantity`, `notes`, `status`, price snapshots | `order_id → orders`, `menu_item_id → menu_items`, `variant_id → item_variants` | `idx_order_items_order`, `idx_order_items_menu_item`, `idx_order_items_variant`, `idx_order_items_status` | `CASCADE` / `RESTRICT` |
 | `payments` | `id`, `method`, `amount` | `order_id → orders`, `recorded_by → users` | `idx_payments_order` | `RESTRICT` |
-| `stock_movements` | `id`, `quantity`, `reason` | `ingredient_id → ingredients`, `order_item_id → order_items`, `created_by → users` | `idx_stock_movements_ingredient`, `idx_stock_movements_order_item`, `idx_stock_movements_created_by` | `RESTRICT` |
+| `bill_splits` | `id`, `label`, `amount`, `method`, `paid_at` | `order_id → orders` | `UNIQUE(order_id, label)`, `idx_bill_splits_order` | `RESTRICT` |
+| `order_item_events` | `order_item_id`, `from_status`, `to_status`, `actor_id` | `order_item_id → order_items`, `actor_id → users` | `idx_order_item_events_item`, `idx_order_item_events_created` | `CASCADE` / `RESTRICT` |
+| `table_transfers` | `id`, `from_table_id`, `to_table_id`, `moved_by` | `order_id → orders`, tables, `moved_by → users` | `idx_table_transfers_order`, `idx_table_transfers_to_table` | `CASCADE` / `RESTRICT` |
+| `stock_movements` | `id`, `quantity`, `reason` | `ingredient_id → ingredients`, `order_item_id → order_items`, `created_by → users` | `UNIQUE(order_item_id, ingredient_id, reason)`, `idx_stock_movements_ingredient`, `idx_stock_movements_order_item`, `idx_stock_movements_created_by` | `RESTRICT` |
 | `daily_sales` | `sales_date`, `sales`, `orders` | — | `UNIQUE(sales_date)` | — |
 
 `docs/schema.sql` opens with the rationale for every index. `PRAGMA foreign_keys = ON` is set on every connection, migrations in [server/migrate.ts](./server/migrate.ts) are idempotent, and order/bill numbers are allocated in an `IMMEDIATE` transaction with retry on UNIQUE conflicts.
@@ -138,9 +148,9 @@ Only backend and build-time variables are used; no `VITE_*` variables are read. 
 | `API_TARGET` | Vite dev proxy target for `/api` | `http://127.0.0.1:3001`; not listed in `.env.example` |
 | `DISABLE_HMR` | Disable Vite HMR and file watching when `true` | Unset by default; not listed in `.env.example` |
 | `SEED_DEMO_DATA` | Create the five demo users, floors, tables, menu and sample orders when the `users` table is empty | `false`; set to `true` for a local demo |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` … `CASHIER_EMAIL` / `CASHIER_PASSWORD` | Demo credentials for the five roles; missing passwords are generated and logged once | Placeholders in `.env.example` only |
-| `ADMIN_EMAIL` / `MANAGER_EMAIL` / `CASHIER_EMAIL` | Demo user email addresses | `admin@example.com` / `manager@example.com` / `cashier@example.com` in `.env.example` |
-| `ADMIN_PASSWORD` / `MANAGER_PASSWORD` / `CASHIER_PASSWORD` | Demo user passwords | Placeholders in `.env.example`; missing values generate a random password printed once in the startup log |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` … `CASHIER_EMAIL` / `CASHIER_PASSWORD` | Demo credentials for all five roles; missing passwords are generated and logged once | Placeholders in `.env.example` only |
+| `QR_TOKEN_SECRET` | Backend-only HMAC secret for signed table QR tokens | Development fallback; production refuses to start if unset or shorter than 32 characters |
+| `MAX_CASHIER_DISCOUNT_PERCENT` | Maximum discount a cashier may apply to a bill subtotal | `10`; invalid values fall back to `10` |
 
 ## Docker
 

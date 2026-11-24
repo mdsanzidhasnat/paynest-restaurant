@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Replaced the retail API with the restaurant backend: nine domain routers (`tables`, `menu`, `orders`, `kitchen`, `billing`, `inventory`, `reports`, `users`, `settings`) mounted by `server/app.ts`. Public QR routes remain for the next phase.
+- Added five-role permissions (`admin`, `manager`, `waiter`, `kitchen`, `cashier`), a server-owned order state machine with per-item events and table status recomputation, HMAC-signed table QR tokens with rotation, and a JSON content-type guard for mutating requests.
+- Billing is now fully server-owned: clamped discounts with a cashier cap (`MAX_CASHIER_DISCOUNT_PERCENT`), VAT/service charge from settings, equal/per-item splits, atomic bill numbers, payment coverage checks and automatic table release.
+- Serving an item deducts recipe ingredients in one IMMEDIATE transaction, writes `stock_movements`, and returns `409` with a `lowStock` flag when stock is short.
+- Added the restaurant schema (v3): floors/tables, menu items and variants, ingredients and recipes, orders/items/payments, bill splits, item events and table transfers. `docs/api.md`, README, setup docs and endpoint tests were updated.
 - Fixed broken product and avatar images in production: the demo JPEGs moved from `src/assets/images/` to `public/images/` and all stored URLs now use `/images/<filename>`, which Vite copies into `dist/`. The obsolete `src/assets` copy plugin was removed from `vite.config.ts`.
 - Added an idempotent startup migration in `server/migrate.ts` that rewrites legacy `/src/assets/images/...` values in `products.image` and `users.avatar` for already-deployed databases, with unit tests.
 - Renamed the seed source from `src/data/mockData.ts` to `src/data/seedData.ts` and updated the seeders, generated `docs/seed.sql`, and setup docs.

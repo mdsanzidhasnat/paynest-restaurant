@@ -40,6 +40,11 @@
 --   idx_stock_movements_ingredient                 - stock ledger by ingredient (FK lookup)
 --   idx_stock_movements_order_item                 - one served deduction per order line
 --   idx_stock_movements_created_by                 - manual adjustments by staff member
+--   idx_bill_splits_order                          - split plan for one bill (FK lookup)
+--   idx_order_item_events_item                     - per-item timer history (FK lookup)
+--   idx_order_item_events_created                  - kitchen ticket ordering by event time
+--   idx_table_transfers_order                      - transfer history for one order
+--   idx_table_transfers_to_table                   - turnover by destination table
 --   idx_daily_sales_sales_date (UNIQUE)            - one reporting snapshot per calendar day
 --   implicit PK number_sequences.name              - atomic order/bill number counters
 --   implicit PK schema_version.version             - idempotent migration tracking
@@ -217,7 +222,8 @@ CREATE TABLE IF NOT EXISTS order_items (
   unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
   line_total INTEGER NOT NULL CHECK (line_total >= 0),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  served_at TEXT
+  served_at TEXT,
+  cancel_reason TEXT
 );
 
 -- Payment method is a recorded selection only; no gateway data is stored.
@@ -241,7 +247,39 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   note TEXT NOT NULL DEFAULT '',
   created_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  UNIQUE (order_item_id, reason)
+  UNIQUE (order_item_id, ingredient_id, reason)
+);
+
+-- Server-computed split plan. One row per split; payment records reference a split.
+CREATE TABLE IF NOT EXISTS bill_splits (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+  label TEXT NOT NULL,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  method TEXT CHECK (method IN ('Cash', 'bKash', 'Nagad', 'Card')),
+  reference TEXT NOT NULL DEFAULT '',
+  paid_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE (order_id, label)
+);
+
+-- Every item status change is recorded for kitchen timers and audit.
+CREATE TABLE IF NOT EXISTS order_item_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_item_id TEXT NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+  from_status TEXT,
+  to_status TEXT NOT NULL,
+  actor_id TEXT REFERENCES users(id) ON DELETE RESTRICT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS table_transfers (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  from_table_id TEXT NOT NULL REFERENCES tables(id) ON DELETE RESTRICT,
+  to_table_id TEXT NOT NULL REFERENCES tables(id) ON DELETE RESTRICT,
+  moved_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS daily_sales (
@@ -280,3 +318,8 @@ CREATE INDEX IF NOT EXISTS idx_stock_movements_ingredient ON stock_movements(ing
 CREATE INDEX IF NOT EXISTS idx_stock_movements_order_item ON stock_movements(order_item_id);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_created_by ON stock_movements(created_by);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_sales_sales_date ON daily_sales(sales_date);
+CREATE INDEX IF NOT EXISTS idx_bill_splits_order ON bill_splits(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_item_events_item ON order_item_events(order_item_id);
+CREATE INDEX IF NOT EXISTS idx_order_item_events_created ON order_item_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_table_transfers_order ON table_transfers(order_id);
+CREATE INDEX IF NOT EXISTS idx_table_transfers_to_table ON table_transfers(to_table_id);

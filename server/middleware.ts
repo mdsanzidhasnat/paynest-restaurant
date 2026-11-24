@@ -76,7 +76,7 @@ export function errorHandler(error: unknown, _req: Request, res: Response, next:
     return;
   }
   if (error instanceof HttpError) {
-    res.status(error.status).json({ error: error.message });
+    res.status(error.status).json({ error: error.message, ...(error.details ?? {}) });
     return;
   }
   if (

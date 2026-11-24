@@ -4,18 +4,18 @@ import express, { type Request } from 'express';
 import helmet from 'helmet';
 import { getAllowedOrigins } from './config.ts';
 import { HttpError } from './errors.ts';
+import { requireJson } from './http.ts';
 import { errorHandler, requireAuth } from './middleware.ts';
-import {
-  dashboardRouter,
-  invoiceSettingsRouter,
-  reportsRouter,
-  settingsRouter,
-  usersRouter,
-} from './routes/admin.ts';
 import { authRouter } from './routes/auth.ts';
-import { categoriesRouter, inventoryRouter, productsRouter } from './routes/catalog.ts';
-import { purchasesRouter, salesRouter } from './routes/commerce.ts';
-import { customersRouter, duesRouter, suppliersRouter } from './routes/parties.ts';
+import { billingRouter } from './routes/billing.ts';
+import { inventoryRouter } from './routes/inventory.ts';
+import { kitchenRouter } from './routes/kitchen.ts';
+import { menuRouter } from './routes/menu.ts';
+import { ordersRouter } from './routes/orders.ts';
+import { reportsRouter } from './routes/reports.ts';
+import { settingsRouter } from './routes/settings.ts';
+import { tablesRouter } from './routes/tables.ts';
+import { usersRouter } from './routes/users.ts';
 
 export function createApp() {
   const app = express();
@@ -47,6 +47,7 @@ export function createApp() {
   );
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
+  app.use('/api', requireJson);
 
   // Health and login are the only /api endpoints without authentication.
   app.get('/api/health', (_req, res) => {
@@ -55,19 +56,15 @@ export function createApp() {
   app.use('/api/auth', authRouter);
 
   app.use('/api', requireAuth);
-  app.use('/api/dashboard', dashboardRouter);
-  app.use('/api/reports', reportsRouter);
-  app.use('/api/settings', settingsRouter);
-  app.use('/api/invoice-settings', invoiceSettingsRouter);
-  app.use('/api/users', usersRouter);
-  app.use('/api/products', productsRouter);
-  app.use('/api/categories', categoriesRouter);
+  app.use('/api/tables', tablesRouter);
+  app.use('/api/menu', menuRouter);
+  app.use('/api/orders', ordersRouter);
+  app.use('/api/kitchen', kitchenRouter);
+  app.use('/api/bills', billingRouter);
   app.use('/api/inventory', inventoryRouter);
-  app.use('/api/customers', customersRouter);
-  app.use('/api/suppliers', suppliersRouter);
-  app.use('/api/purchases', purchasesRouter);
-  app.use('/api/sales', salesRouter);
-  app.use('/api/dues', duesRouter);
+  app.use('/api/reports', reportsRouter);
+  app.use('/api/users', usersRouter);
+  app.use('/api/settings', settingsRouter);
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'API endpoint not found.' });

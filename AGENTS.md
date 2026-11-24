@@ -17,6 +17,9 @@ This repository is being converted from the old retail POS into a restaurant man
   discounts, totals, dues) is always computed on the server by `server/billing.ts`; clients never
   send totals or counters. Money is stored as INTEGER minor units (paisa); percentages are REAL
   0..100. The auth cookie uses `sameSite: 'strict'`.
+- Backend API phase implemented: nine domain routers under `server/routes/` for tables, menu,
+  orders, kitchen, billing, inventory, reports, users and settings. Public QR ordering routes are
+  intentionally deferred to the next phase; authenticated QR issue/rotation already exists.
 - Database phase implemented deviations: money is INTEGER minor units, recipe quantities are per
   menu item (not per variant), `orders` owns bill numbers and totals while `payments` records only
   the selected method and amount, and `schema_version`/`number_sequences` support migrations and
@@ -37,7 +40,7 @@ This repository is being converted from the old retail POS into a restaurant man
 
 - **Root:** `src/` frontend, `server/` API, `docs/` (`schema.sql`, `seed.sql`, `api.md`, screenshot notes), and `scripts/` (`generate-seed-sql.ts`, `smoke-native.mjs`), plus build/hosting config in `package.json`, `package-lock.json`, `vite.config.ts`, `tsconfig.json`, `vercel.json`, `render.yaml`, `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `index.html`, `.env.example`, `.nvmrc`, and `.gitignore`. Docs at the root are `README.md`, `HowToSetup.md`, `CHANGELOG.md`, `LICENSE-NOTE.md`, and this file.
 - **Frontend folders:** `src/api/` (`client.ts` for all `/api` calls), `src/auth/` (`AuthContext.tsx`), `src/components/` (`charts/`, `common/`, `layout/`, `modals/`, `views/`), `src/data/` (`seedData.ts` for seed data, `productImages.ts` for preset image paths), `src/test/`, `src/types/pos.ts`, and `src/utils/` (`format.ts`, `billing.ts`, `billing.test.ts`, `dates.ts`, `dates.test.ts`). Image assets live in `public/images/` and are referenced as `/images/<filename>`.
-- **Backend folders:** `server/index.ts` (entry point), `server/app.ts` (Express app and route mounting), `server/config.ts` (environment), `server/db.ts` (SQLite), `server/seed.ts` and `server/seed-cli.ts`, `server/auth.ts`, `server/middleware.ts`, `server/permissions.ts`, `server/mappers.ts`, `server/validate.ts`, `server/errors.ts`, and `server/routes/` for the API routers.
+- **Backend folders:** `server/index.ts` (entry point), `server/app.ts` (Express app and route mounting), `server/config.ts` (environment), `server/db.ts` (SQLite), `server/seed.ts` and `server/seed-cli.ts`, `server/auth.ts`, `server/middleware.ts`, `server/permissions.ts`, `server/mappers.ts`, `server/validate.ts`, `server/errors.ts`, `server/http.ts` (pagination and JSON guard), `server/billing.ts` and `server/order-totals.ts` (authoritative money), `server/order-state.ts` (state machine and stock), `server/qr-token.ts` (HMAC table tokens), `server/numbering.ts` (atomic numbers), and `server/routes/` for the API routers.
 - **Entry point:** `src/main.tsx` mounts `src/App.tsx`, wraps it in `AuthProvider`, and imports `src/index.css`.
 
 ## Frontend routing
@@ -51,27 +54,28 @@ This repository is being converted from the old retail POS into a restaurant man
 
 - `src/api/client.ts` calls `/api` with `credentials: 'same-origin'`; a 401 response clears the local user through a handler registered by `AuthContext.tsx`.
 - `server/app.ts` mounts `/api/auth` as the only unauthenticated router. Every other `/api` route passes through `requireAuth`.
-- Routers live in `server/routes/`: `auth.ts`, `admin.ts`, `catalog.ts`, `commerce.ts`, and `parties.ts`. Request validation is in `server/validate.ts`, and row-to-UI mapping is in `server/mappers.ts`.
+- Mutating `/api` requests require `application/json` (`requireJson` in `server/http.ts`); the only exception is `/api/auth/logout`.
+- Routers live in `server/routes/`: `auth.ts`, `tables.ts`, `menu.ts`, `orders.ts`, `kitchen.ts`, `billing.ts`, `inventory.ts`, `reports.ts`, `users.ts`, and `settings.ts`. Request validation is in `server/validate.ts`, and row-to-UI mapping is in `server/mappers.ts`.
 - Use Zod schemas in the route files for new request bodies and `requirePermission` for new protected routes.
 
 ## Authentication flow
 
 - `src/components/views/LoginView.tsx` calls `onSignIn`, which maps to `AuthContext.login` → `api.login`.
 - `POST /api/auth/login` validates the email, checks the active user with `bcrypt.compare`, signs a JWT, and sets `paynest_token` through `setAuthCookie`.
-- The cookie is httpOnly, `sameSite: 'lax'`, `path: '/'`, and `secure` when `NODE_ENV === 'production'`.
+- The cookie is httpOnly, `sameSite: 'strict'`, `path: '/'`, and `secure` when `NODE_ENV === 'production'`.
 - `AuthProvider` calls `/api/auth/me` on mount to restore the user; 401 clears local auth state.
-- `JWT_SECRET`, `JWT_EXPIRES_IN`, `DB_PATH`, `PORT`, and `CORS_ORIGIN` are read in `server/config.ts`. Production startup rejects a missing or short (`<32`) `JWT_SECRET`; outside production an unset secret generates a random per-process value with a warning.
+- `JWT_SECRET`, `JWT_EXPIRES_IN`, `DB_PATH`, `PORT`, `CORS_ORIGIN`, `QR_TOKEN_SECRET`, and `MAX_CASHIER_DISCOUNT_PERCENT` are read in `server/config.ts`. Production startup rejects a missing or short (`<32`) `JWT_SECRET`; outside production an unset secret generates a random per-process value with a warning.
 
 ## Role-based access control
 
-- The single authorization map is `server/permissions.ts` (`PERMISSION_MAP`). It defines the `admin`, `manager`, and `cashier` roles and their permission lists.
+- The single authorization map is `server/permissions.ts` (`PERMISSION_MAP`). It defines all five roles (`admin`, `manager`, `waiter`, `kitchen`, `cashier`) and their permission lists. Deprecated retail aliases remain only for legacy UI screens; no new endpoint may use them.
 - `server/middleware.ts` enforces it with `requireAuth`, `requirePermission`, and `requireRole`; failures return 401 or 403.
 - The frontend receives the resulting permission list from `/api/auth/me` and uses `can()` in `AuthContext.tsx` only to hide or disable controls. Never treat frontend hiding as authorization.
 
 ## Database layer
 
 - `server/db.ts` opens `better-sqlite3`, enables foreign keys and WAL mode, applies `docs/schema.sql`, and seeds demo rows only when `SEED_DEMO_DATA=true` and the `users` table is empty.
-- `src/data/seedData.ts` is the seed source imported by `server/seed.ts`; it is not the live runtime store. Demo emails/passwords come from environment variables; missing passwords generate a random value logged once in plaintext and stored only as a bcrypt hash. `server/migrate.ts` rewrites legacy `/src/assets/images/...` values in `products.image` and `users.avatar` to `/images/...` on every startup.
+- `src/data/seedData.ts` is the seed source imported by `server/seed.ts`; it is not the live runtime store. Demo emails/passwords come from environment variables; missing passwords generate a random value logged once in plaintext and stored only as a bcrypt hash. `server/migrate.ts` rewrites legacy `/src/assets/images/...` values in `menu_items.image` and `users.avatar` to `/images/...` on every startup. The current schema version is 3.
 - `npm run seed` resets and re-seeds all seeded tables through `server/seed-cli.ts`. Treat it as destructive. `npm run seed:sql` regenerates `docs/seed.sql` from the same mock data for review/import into an empty database.
 - Financial tables keep historical snapshots; prefer deactivating users over deleting them.
 

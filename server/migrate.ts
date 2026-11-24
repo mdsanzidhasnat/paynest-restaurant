@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3';
 import { logStage, logWarn } from './log.ts';
 import { getSchemaPath } from './paths.ts';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 3;
 export const LEGACY_ASSET_PREFIX = '/src/assets/images/';
 const PUBLIC_ASSET_PREFIX = '/images/';
 
@@ -33,6 +33,74 @@ const MIGRATIONS: Migration[] = [
       );
       insert.run('order');
       insert.run('bill');
+    },
+  },
+  {
+    version: 2,
+    description: 'bill splits, item status events, table transfers and cancel reason',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS bill_splits (
+          id TEXT PRIMARY KEY,
+          order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+          label TEXT NOT NULL,
+          amount INTEGER NOT NULL CHECK (amount > 0),
+          method TEXT CHECK (method IN ('Cash', 'bKash', 'Nagad', 'Card')),
+          reference TEXT NOT NULL DEFAULT '',
+          paid_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          UNIQUE (order_id, label)
+        );
+        CREATE TABLE IF NOT EXISTS order_item_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          order_item_id TEXT NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+          from_status TEXT,
+          to_status TEXT NOT NULL,
+          actor_id TEXT REFERENCES users(id) ON DELETE RESTRICT,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        );
+        CREATE TABLE IF NOT EXISTS table_transfers (
+          id TEXT PRIMARY KEY,
+          order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+          from_table_id TEXT NOT NULL REFERENCES tables(id) ON DELETE RESTRICT,
+          to_table_id TEXT NOT NULL REFERENCES tables(id) ON DELETE RESTRICT,
+          moved_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_bill_splits_order ON bill_splits(order_id);
+        CREATE INDEX IF NOT EXISTS idx_order_item_events_item ON order_item_events(order_item_id);
+        CREATE INDEX IF NOT EXISTS idx_order_item_events_created ON order_item_events(created_at);
+        CREATE INDEX IF NOT EXISTS idx_table_transfers_order ON table_transfers(order_id);
+        CREATE INDEX IF NOT EXISTS idx_table_transfers_to_table ON table_transfers(to_table_id);
+      `);
+      if (!hasColumn(db, 'order_items', 'cancel_reason')) {
+        db.exec("ALTER TABLE order_items ADD COLUMN cancel_reason TEXT");
+      }
+    },
+  },
+  {
+    version: 3,
+    description: 'one stock movement per ingredient per served item',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE stock_movements_v3 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ingredient_id TEXT NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT,
+          order_item_id TEXT REFERENCES order_items(id) ON DELETE RESTRICT,
+          quantity REAL NOT NULL,
+          reason TEXT NOT NULL CHECK (reason IN ('served', 'manual', 'waste', 'correction')),
+          note TEXT NOT NULL DEFAULT '',
+          created_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          UNIQUE (order_item_id, ingredient_id, reason)
+        );
+        INSERT INTO stock_movements_v3 SELECT * FROM stock_movements;
+        DROP TABLE stock_movements;
+        ALTER TABLE stock_movements_v3 RENAME TO stock_movements;
+        CREATE INDEX IF NOT EXISTS idx_stock_movements_ingredient ON stock_movements(ingredient_id);
+        CREATE INDEX IF NOT EXISTS idx_stock_movements_order_item ON stock_movements(order_item_id);
+        CREATE INDEX IF NOT EXISTS idx_stock_movements_created_by ON stock_movements(created_by);
+      `);
     },
   },
 ];

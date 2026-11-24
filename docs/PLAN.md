@@ -1,13 +1,15 @@
 # Restaurant Management System — Conversion Plan (DRAFT, awaiting approval)
 
-Status: **database layer implemented; API/UI phases pending**. This document is the build
+Status: **database and authenticated backend API implemented; public QR routes and UI pending**. This document is the build
 roadmap only and must be deleted before release. Working title: **Restaurant Management System**;
 a final product name/brand is a required decision (see §10).
 
-Implementation note (2026-11-24): the restaurant schema, idempotent migrations, server-owned
+Implementation note (2026-11-24): the restaurant schema, idempotent migrations (v3), server-owned
 billing, atomic numbering, five-role demo seed, local SVG placeholders and generated
-`docs/seed.sql` are in place. D1–D12 in §10 remain open; the implemented storage choices are
-documented in `AGENTS.md` and the README schema summary.
+`docs/seed.sql` are in place. All nine authenticated domain routers (areas 1, 3–8) are mounted and
+documented in `docs/api.md`; public QR menu/order routes remain for the next phase. D1–D12 in §10
+remain open; the implemented storage choices are documented in `AGENTS.md` and the README schema
+summary.
 
 Audit date: 2026-11-24. Repo inspected: `/home/sanzid/paynest-restaurant` (root files, `server/`,
 `src/`, `docs/`, `scripts/`, `public/images/`, all config/deploy files and tests).

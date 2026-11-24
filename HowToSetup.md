@@ -147,8 +147,8 @@ A **static-only host cannot run this application**. Uploading only `dist/` to a 
 
 `src/data/seedData.ts` exports the `INITIAL_*` constants used by `server/seed.ts`. To change seeded records:
 
-1. Edit the relevant `INITIAL_PRODUCTS`, `INITIAL_CATEGORIES`, `INITIAL_CUSTOMERS`, `INITIAL_SUPPLIERS`, `INITIAL_INVOICES`, `INITIAL_PURCHASES`, `INITIAL_DUE_PAYMENTS`, `INITIAL_SETTINGS`, or `WEEKLY_SALES_DATA` values in [seedData.ts](./src/data/seedData.ts).
-2. Edit `DEMO_USERS` in [server/seed.ts](./server/seed.ts) if you need different demo identities.
+1. Edit the relevant `RESTAURANT_SETTINGS`, `INITIAL_FLOORS`, `INITIAL_TABLES`, `INITIAL_CATEGORIES`, `INITIAL_INGREDIENTS`, `INITIAL_MENU_ITEMS`, or `INITIAL_COMPLETED_ORDERS` values in [seedData.ts](./src/data/seedData.ts).
+2. Edit `DEMO_ACCOUNTS` in [server/seed.ts](./server/seed.ts) if you need different demo identities.
 3. Run `npm run seed` to replace the existing rows.
 
 For real use, create records through the UI/API instead of relying on seed data, and replace every demo credential. The runtime API writes to SQLite through the routers in `server/routes/`; `seedData.ts` is only the seed source.
@@ -173,11 +173,13 @@ This project does not define a Tailwind `@theme` block. Colours are literal valu
 
 To re-theme the app, change the literals in `src/index.css` and `index.html`, then update the utility classes in the relevant components. Keep the existing markup and class structure; only change colour values.
 
-## Change the shop name and invoice details
+## Change the restaurant name and invoice details
 
-Seeded store branding comes from `INITIAL_SETTINGS` in [seedData.ts](./src/data/seedData.ts) and is inserted into the single `settings` row by `server/seed.ts`. At runtime, edit it in the **Settings** screen implemented by [SettingsView.tsx](./src/components/views/SettingsView.tsx), which saves through `/api/settings` in [admin.ts](./server/routes/admin.ts).
+Seeded branding comes from `RESTAURANT_SETTINGS` in [seedData.ts](./src/data/seedData.ts) and is inserted into the single `settings` row by `server/seed.ts`. The live API exposes `GET`/`PUT /api/settings` (admin only) in [settings.ts](./server/routes/settings.ts) and `GET /api/settings/invoice` (all signed-in roles) for receipt branding.
 
-Invoice output reads `/api/invoice-settings` and renders in [InvoicePreviewView.tsx](./src/components/views/InvoicePreviewView.tsx) and [InvoiceModal.tsx](./src/components/modals/InvoiceModal.tsx). Store name, branch, contact details, currency symbol, VAT, invoice prefix, paper size, QR code, paid stamp, footer, and payment methods are all stored in the `settings` table.
+Restaurant name, contact details, address, currency symbol, VAT %, service charge %, invoice prefix, paper size, receipt footer and the default low-stock threshold are stored in the `settings` table. Bill invoices also read these values through `/api/bills/orders/:orderId/invoice` in [billing.ts](./server/routes/billing.ts).
+
+> The legacy retail screens still call retired `/api/products`, `/api/sales` and `/api/invoice-settings` endpoints. They remain in the frontend until the UI conversion phase; the restaurant API above is the supported backend (see [docs/api.md](./docs/api.md)).
 
 ## Barcode scanner
 
@@ -202,4 +204,4 @@ The POS supports keyboard-wedge/HID scanners that type a barcode and send Enter 
 - **A scan does not add a product:** keep focus outside editable fields, confirm the barcode/SKU matches a product, and configure the scanner to send Enter or Tab.
 - **“Forgot password?” does nothing:** that form is a local UI confirmation only; there is no reset email or reset API.
 - **Held orders disappear:** held carts are kept in React memory only and are not persisted.
-- **Invoice details look generic:** edit the `settings` row through the Settings screen or change `INITIAL_SETTINGS` before reseeding.
+- **Invoice details look generic:** update the `settings` row through `PUT /api/settings` (admin) or change `RESTAURANT_SETTINGS` before reseeding.
