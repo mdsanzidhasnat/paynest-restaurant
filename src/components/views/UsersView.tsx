@@ -3,7 +3,7 @@ import { Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { api, ApiError, type AuthUser } from '../../api/client';
 import { EmptyState, ErrorState, LoadingState } from '../common/AsyncState';
 import { StatusBadge } from '../common/StatusBadge';
-import type { RestaurantRole } from '../../types/pos';
+import type { RestaurantRole } from '../../types/domain';
 
 const ROLES: { value: RestaurantRole; label: string }[] = [
   { value: 'admin', label: 'Admin' },

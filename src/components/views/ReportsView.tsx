@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import { ErrorState, LoadingState } from '../common/AsyncState';
-import type { DailySalesRow, TableTurnoverRow, TopItemRow } from '../../types/pos';
+import type { DailySalesRow, TableTurnoverRow, TopItemRow } from '../../types/domain';
 import { dateRangeForPreset, type DateRangePreset } from '../../utils/dates';
 import { formatMoney } from '../../utils/money';
 

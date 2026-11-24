@@ -16,7 +16,7 @@ import {
   QrCode,
   X,
 } from 'lucide-react';
-import { NavSection } from '../../types/pos';
+import { NavSection } from '../../types/domain';
 
 interface SidebarProps {
   activeSection: NavSection;

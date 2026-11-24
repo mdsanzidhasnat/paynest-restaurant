@@ -17,6 +17,7 @@ import { calculateOrderTotals } from './billing.ts';
 import { logStage, logWarn } from './log.ts';
 import { withBillNumber, withOrderNumber } from './numbering.ts';
 import type { Role } from './permissions.ts';
+import { roundStockQuantity } from './stock.ts';
 
 export interface DemoAccount {
   id: string;
@@ -205,8 +206,8 @@ export function seedDatabase(db: Database.Database, options: { replace?: boolean
         id: ingredient.id,
         name: ingredient.name,
         unit: ingredient.unit,
-        stock: ingredient.stock,
-        low_stock_threshold: ingredient.lowStockThreshold,
+        stock: roundStockQuantity(ingredient.stock, 'Seed stock'),
+        low_stock_threshold: roundStockQuantity(ingredient.lowStockThreshold, 'Seed low stock threshold'),
         unit_cost: ingredient.unitCost,
       });
     }
@@ -243,7 +244,8 @@ export function seedDatabase(db: Database.Database, options: { replace?: boolean
         });
       });
       for (const [ingredientId, quantity] of Object.entries(item.recipe)) {
-        if (quantity > 0) insertRecipe.run(item.id, ingredientId, quantity);
+        const rounded = roundStockQuantity(quantity, 'Seed recipe quantity');
+        if (rounded > 0) insertRecipe.run(item.id, ingredientId, rounded);
       }
     }
 

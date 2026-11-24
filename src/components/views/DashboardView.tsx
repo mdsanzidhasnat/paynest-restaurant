@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ClipboardList, LayoutGrid, ReceiptText, TrendingUp, Utensils } from 'lucide-react';
 import { api } from '../../api/client';
 import { EmptyState, ErrorState, LoadingState } from '../common/AsyncState';
-import type { DashboardSummary, NavSection } from '../../types/pos';
+import type { DashboardSummary, NavSection } from '../../types/domain';
 import { formatMoney } from '../../utils/money';
 
 interface DashboardViewProps {

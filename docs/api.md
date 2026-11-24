@@ -2,7 +2,7 @@
 
 All routes are mounted by [server/app.ts](../server/app.ts). Requests and responses use JSON. The browser client calls relative `/api` URLs with same-origin credentials (`src/api/client.ts`); there is no separate API host in production.
 
-The React staff screens in [src/components/views/](../src/components/views/) use this API through the typed client in [src/api/client.ts](../src/api/client.ts). A `401` clears the local session and a `403` shows a friendly permission banner; roles land on their primary screen (admin/manager dashboard, waiter tables, kitchen display, cashier billing). Screens format server-owned money with [src/utils/money.ts](../src/utils/money.ts) and never send totals or counters.
+The React staff screens in [src/components/views/](../src/components/views/) use this API through the typed client in [src/api/client.ts](../src/api/client.ts). A `401` clears the local session and a `403` shows a friendly permission banner; roles land on their primary screen (admin/manager dashboard, waiter tables, kitchen display, cashier billing). Screens format server-owned money only through `formatMoney()` in [src/utils/money.ts](../src/utils/money.ts) and never send totals or counters.
 
 Every mutating request (`POST`, `PUT`, `PATCH`, `DELETE`) must send `Content-Type: application/json` or it is rejected with `415`. List endpoints accept `limit` (default `1000`, maximum `5000`) and `offset` (default `0`); invalid values return `400`.
 
@@ -39,7 +39,7 @@ Errors are returned as `{ "error": "message", ...details }` by [server/middlewar
 | `429` | Rate limit: login (10 attempts per 15 minutes per IP; relaxed under `NODE_ENV=test`) or public routes (see below) |
 | `500` | Unexpected server error |
 
-Money fields are INTEGER minor units (paisa). Percentages are REAL values in `0..100`. All totals, VAT, service charge, discounts, due amounts and counters are computed by [server/billing.ts](../server/billing.ts) and [server/order-totals.ts](../server/order-totals.ts); clients never send them.
+Money fields are INTEGER minor units (paisa), so `55000` means `550.00`. Percentages are REAL values in `0..100`. All totals, VAT, service charge, discounts, due amounts and counters are computed by [server/billing.ts](../server/billing.ts) and [server/order-totals.ts](../server/order-totals.ts); clients never send them. Ingredient stock, low-stock thresholds, recipe quantities and stock-movement deltas are decimal display-unit numbers (kg, litre or pcs) rounded to at most three decimals by [server/stock.ts](../server/stock.ts); the response shape and number type are unchanged.
 
 ## Auth — `/api/auth`
 
@@ -169,7 +169,7 @@ Backward transitions require `orders:override`. The kitchen cannot mark items se
 | `GET` | `/recipes/:menuItemId` | `recipe:read` | — | `200` recipe lines with ingredient details |
 | `PUT` | `/recipes/:menuItemId` | `recipe:write` | `{ lines: [{ ingredientId, quantity }] }` | `200` saved recipe lines |
 
-Recipes are per menu item, not per variant. Stock below zero is rejected with `409`. Deleting an ingredient used by a recipe returns `409`.
+Recipes are per menu item, not per variant. Stock, thresholds, recipe quantities and manual adjustment deltas are rounded to three decimals by [server/stock.ts](../server/stock.ts); values that round to zero are rejected for adjustments and recipes. Non-finite values return `400`, and any change that would make stock negative returns `409`. Deleting an ingredient used by a recipe returns `409`.
 
 ## Reports — `/api/reports`
 

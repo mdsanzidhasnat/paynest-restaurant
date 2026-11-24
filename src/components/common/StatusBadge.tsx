@@ -1,4 +1,4 @@
-import type { OrderItemStatus, OrderStatus, TableStatus } from '../../types/pos';
+import type { OrderItemStatus, OrderStatus, TableStatus } from '../../types/domain';
 
 type Tone = 'neutral' | 'green' | 'amber' | 'red' | 'blue' | 'indigo';
 

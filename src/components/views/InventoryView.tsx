@@ -3,7 +3,7 @@ import { AlertTriangle, PackagePlus } from 'lucide-react';
 import { api } from '../../api/client';
 import { EmptyState, ErrorState, LoadingState } from '../common/AsyncState';
 import { StatusBadge } from '../common/StatusBadge';
-import type { Ingredient, MenuItem, RecipeLine, StockMovement } from '../../types/pos';
+import type { Ingredient, MenuItem, RecipeLine, StockMovement } from '../../types/domain';
 
 interface InventoryViewProps {
   canWrite: boolean;

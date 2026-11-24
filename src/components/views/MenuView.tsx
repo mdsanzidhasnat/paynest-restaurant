@@ -4,7 +4,7 @@ import { api } from '../../api/client';
 import { EmptyState, ErrorState, LoadingState } from '../common/AsyncState';
 import { MenuItemCard } from '../common/MenuItemCard';
 import { PRODUCT_IMAGES } from '../../data/productImages';
-import type { MenuCategory, MenuItem, PrepStation } from '../../types/pos';
+import type { MenuCategory, MenuItem, PrepStation } from '../../types/domain';
 import { formatMoney, parseMinorUnits } from '../../utils/money';
 
 const IMAGE_OPTIONS = Array.from(

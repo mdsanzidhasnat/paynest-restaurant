@@ -29,7 +29,7 @@ Use your own `.env` values for a local demo; see [HowToSetup.md](./HowToSetup.md
 - **Ingredient inventory** — ingredients, per-item recipes, stock ledger, manual adjustments, low-stock alerts and automatic deduction when an item is served.
 - **Reports and administration** — runtime 7/14/30-day presets, daily sales, top items, table turnover, admin-only users and settings, and an auto-confirm switch for guest orders.
 
-All money is stored as INTEGER minor units (paisa) and all totals are calculated by [server/billing.ts](./server/billing.ts). Clients only display values returned by the API.
+All money is stored as INTEGER minor units (paisa) — `55000` means `550.00` — and all totals are calculated by [server/billing.ts](./server/billing.ts). Clients only display values returned by the API, formatting every amount through `formatMoney()` in [src/utils/money.ts](./src/utils/money.ts). Ingredient stock, recipe quantities and stock movements stay decimal numbers in the API, rounded to at most three decimals by [server/stock.ts](./server/stock.ts).
 
 ## Screenshots
 

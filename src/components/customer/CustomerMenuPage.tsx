@@ -7,7 +7,7 @@ import {
   PublicOrderResult,
   PublicOrderStatus,
   PublicOrderStatusResult,
-} from '../../types/pos';
+} from '../../types/domain';
 import { formatMoney } from '../../utils/money';
 
 interface CustomerMenuPageProps {

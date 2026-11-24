@@ -1,5 +1,5 @@
 import { ClipboardList, Users } from 'lucide-react';
-import type { RestaurantOrder } from '../../types/pos';
+import type { RestaurantOrder } from '../../types/domain';
 import { formatMoney } from '../../utils/money';
 import { StatusBadge } from './StatusBadge';
 

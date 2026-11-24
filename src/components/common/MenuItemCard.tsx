@@ -1,4 +1,4 @@
-import type { MenuItem } from '../../types/pos';
+import type { MenuItem } from '../../types/domain';
 import { formatMoney } from '../../utils/money';
 import { StatusBadge } from './StatusBadge';
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { BillView } from '../../types/pos';
+import type { BillView } from '../../types/domain';
 import { formatMoney, formatPercent } from '../../utils/money';
 
 interface BillSummaryProps {

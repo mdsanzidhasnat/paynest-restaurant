@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import { EmptyState, ErrorState, LoadingState } from '../common/AsyncState';
 import { TableCard } from '../common/TableCard';
-import type { RestaurantFloor, RestaurantOrder, RestaurantTable } from '../../types/pos';
+import type { RestaurantFloor, RestaurantOrder, RestaurantTable } from '../../types/domain';
 
 interface TablesViewProps {
   canTransfer: boolean;

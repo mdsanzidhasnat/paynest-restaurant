@@ -14,7 +14,7 @@ import type {
   RestaurantOrder,
   RestaurantSettings,
   RestaurantTable,
-} from './types/pos';
+} from './types/domain';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
 import { DashboardView } from './components/views/DashboardView';

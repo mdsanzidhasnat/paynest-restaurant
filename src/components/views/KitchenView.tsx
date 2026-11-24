@@ -3,7 +3,7 @@ import { Bell, BellOff, ChefHat } from 'lucide-react';
 import { api } from '../../api/client';
 import { EmptyState, ErrorState, LoadingState } from '../common/AsyncState';
 import { KitchenTimer } from '../common/KitchenTimer';
-import type { KitchenTicket } from '../../types/pos';
+import type { KitchenTicket } from '../../types/domain';
 
 const COLUMNS: {
   status: 'new' | 'preparing' | 'ready';

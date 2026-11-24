@@ -10,7 +10,7 @@ import type {
   MenuItem,
   RestaurantOrder,
   RestaurantTable,
-} from '../../types/pos';
+} from '../../types/domain';
 import { formatMoney } from '../../utils/money';
 
 interface DraftLine {

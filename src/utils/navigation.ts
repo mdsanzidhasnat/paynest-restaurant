@@ -1,5 +1,5 @@
 import type { Permission } from '../../server/permissions';
-import type { NavSection } from '../types/pos';
+import type { NavSection } from '../types/domain';
 
 export type CanCheck = (permission: Permission) => boolean;
 

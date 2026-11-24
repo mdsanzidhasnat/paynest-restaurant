@@ -29,7 +29,7 @@ import type {
   TableStatus,
   TableTurnoverRow,
   TopItemRow,
-} from '../types/pos';
+} from '../types/domain';
 
 export interface AuthUser {
   id: string;

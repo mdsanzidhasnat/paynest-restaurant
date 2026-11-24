@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { Save } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
 import { ErrorState, LoadingState } from '../common/AsyncState';
-import type { RestaurantSettings } from '../../types/pos';
+import type { RestaurantSettings } from '../../types/domain';
 
 interface SettingsViewProps {
   onSaved?: (settings: RestaurantSettings) => void;

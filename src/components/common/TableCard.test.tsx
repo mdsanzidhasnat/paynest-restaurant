@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TableCard } from './TableCard';
-import type { RestaurantTable, TableStatus } from '../../types/pos';
+import type { RestaurantTable, TableStatus } from '../../types/domain';
 
 function table(status: TableStatus): RestaurantTable {
   return {

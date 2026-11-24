@@ -1,5 +1,5 @@
 import { ArrowRightLeft, Users } from 'lucide-react';
-import type { RestaurantTable } from '../../types/pos';
+import type { RestaurantTable } from '../../types/domain';
 import { StatusBadge } from './StatusBadge';
 
 interface TableCardProps {

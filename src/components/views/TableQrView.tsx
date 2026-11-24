@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, ApiError } from '../../api/client';
-import { RestaurantTable, TableQr } from '../../types/pos';
+import { RestaurantTable, TableQr } from '../../types/domain';
 
 interface TableQrViewProps {
   canRotate: boolean;

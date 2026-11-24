@@ -5,6 +5,8 @@ describe('money utility', () => {
   it('formats integer minor units as taka', () => {
     expect(formatMoney(0)).toBe('৳0');
     expect(formatMoney(45000)).toBe('৳450');
+    expect(formatMoney(55000)).toBe('৳550');
+    expect(formatMoney(123)).toBe('৳1.23');
     expect(formatMoney(1234567)).toBe('৳12,345.67');
     expect(formatMoney(-250)).toBe('৳-2.50');
     expect(formatMoney(1000, 'Tk ')).toBe('Tk 10');

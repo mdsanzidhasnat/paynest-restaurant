@@ -8,7 +8,7 @@ import type {
   PaymentMethodKey,
   RestaurantOrder,
   RestaurantTable,
-} from '../../types/pos';
+} from '../../types/domain';
 import { formatMoney, parseMinorUnits } from '../../utils/money';
 
 interface BillingViewProps {

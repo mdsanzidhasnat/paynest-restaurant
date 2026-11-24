@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Ingredient stock, low-stock thresholds, recipe quantities and stock-movement deltas now round through `server/stock.ts` to at most three decimals. Serving, restocking and seed writes share the helper; repeated `0.35` kg deductions are exact, and negative or non-finite values are rejected without changing the decimal API shape.
+- Documented INTEGER money units explicitly (`55000 = 550.00`) and confirmed billing, invoice printing, reports, dashboard, waiter order and QR menu all render money through the single `formatMoney()` helper. Regression tests cover the helper and screen usage.
+- Renamed `src/types/pos.ts` to `src/types/domain.ts` and updated every import and project rule reference. No UI layout, copy or API response shape changed.
+
 ## 1.0.0 — 2026-11-24
 
 First release of PayNest Restaurant as a single-service table-management application.

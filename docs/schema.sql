@@ -1,9 +1,13 @@
 -- Restaurant Management System — SQLite schema.
 -- Applied by server/migrate.ts when the database is empty. Every connection
 -- enables PRAGMA foreign_keys = ON (see server/db.ts and server/migrate.ts).
--- Money is stored as INTEGER minor units (paisa). Percentages are stored as
--- REAL percentages in the range 0..100. All timestamps are generated on the
--- server at runtime; seed data uses relative day offsets, never fixed dates.
+-- Money is stored as INTEGER minor units (paisa): 55000 = 550.00. Percentages
+-- are stored as REAL percentages in the range 0..100. Ingredient stock,
+-- low-stock thresholds, recipe quantities and stock-movement deltas are REAL
+-- display-unit values (kg, litre or pcs) rounded to at most three decimals by
+-- server/stock.ts; SQLite keeps the decimal API shape unchanged. All timestamps
+-- are generated on the server at runtime; seed data uses relative day offsets,
+-- never fixed dates.
 --
 -- INDEXES (all created at the end of this file unless noted as implicit)
 --   implicit UNIQUE users.email                    - login lookup; no duplicate accounts
@@ -164,6 +168,8 @@ CREATE TABLE IF NOT EXISTS item_variants (
   UNIQUE (menu_item_id, name)
 );
 
+-- Stock is kept in the display unit and normalized to at most 3 decimals by
+-- server/stock.ts before every write; the API still returns decimal numbers.
 CREATE TABLE IF NOT EXISTS ingredients (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
@@ -175,7 +181,8 @@ CREATE TABLE IF NOT EXISTS ingredients (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
--- Recipes are per menu item (not per variant) in this phase.
+-- Recipes are per menu item (not per variant) in this phase. Quantity is the
+-- per-item ingredient amount rounded to 3 decimals in server/stock.ts.
 CREATE TABLE IF NOT EXISTS recipe_items (
   menu_item_id TEXT NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
   ingredient_id TEXT NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT,
@@ -243,6 +250,7 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 
 -- One row per automatic deduction (order_item_id + 'served') or manual change.
+-- The signed quantity delta is rounded to 3 decimals in server/stock.ts.
 CREATE TABLE IF NOT EXISTS stock_movements (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ingredient_id TEXT NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT,

@@ -19,7 +19,7 @@ import type {
   NavSection,
   RestaurantOrder,
   RestaurantTable,
-} from '../../types/pos';
+} from '../../types/domain';
 import { formatMoney } from '../../utils/money';
 
 interface TopBarProps {

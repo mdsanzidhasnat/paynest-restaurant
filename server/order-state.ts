@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { HttpError } from './errors.ts';
 import { now } from './http.ts';
+import { applyStockChange, roundStockQuantity } from './stock.ts';
 
 export type ItemStatus = 'new' | 'preparing' | 'ready' | 'served' | 'cancelled';
 
@@ -96,11 +97,16 @@ function deductRecipeStock(db: Database.Database, item: OrderItemRow, actorId: s
   }>;
 
   for (const line of recipe) {
-    const needed = line.quantity * item.quantity;
-    if (line.stock + 1e-9 < needed) {
+    const recipeQuantity = roundStockQuantity(line.quantity, 'Recipe quantity');
+    if (recipeQuantity <= 0) {
+      throw new HttpError(400, `Recipe quantity for ${line.name} must be greater than zero.`);
+    }
+    const needed = roundStockQuantity(recipeQuantity * item.quantity, 'Recipe deduction');
+    const current = roundStockQuantity(line.stock, 'Current stock');
+    if (current < needed) {
       throw new HttpError(
         409,
-        `Insufficient stock for ${line.name}: need ${needed}, have ${line.stock}.`,
+        `Insufficient stock for ${line.name}: need ${needed}, have ${current}.`,
         { lowStock: true, ingredientId: line.ingredient_id }
       );
     }
@@ -108,15 +114,21 @@ function deductRecipeStock(db: Database.Database, item: OrderItemRow, actorId: s
 
   let lowStock = false;
   for (const line of recipe) {
-    const needed = line.quantity * item.quantity;
-    db.prepare(
-      'UPDATE ingredients SET stock = stock - ?, updated_at = ? WHERE id = ?'
-    ).run(needed, now(), line.ingredient_id);
+    const recipeQuantity = roundStockQuantity(line.quantity, 'Recipe quantity');
+    const needed = roundStockQuantity(recipeQuantity * item.quantity, 'Recipe deduction');
+    const current = roundStockQuantity(line.stock, 'Current stock');
+    const nextStock = applyStockChange(current, -needed);
+    const movementDelta = roundStockQuantity(-needed, 'Stock movement');
+    db.prepare('UPDATE ingredients SET stock = ?, updated_at = ? WHERE id = ?').run(
+      nextStock,
+      now(),
+      line.ingredient_id
+    );
     db.prepare(`
       INSERT INTO stock_movements (ingredient_id, order_item_id, quantity, reason, note, created_by)
       VALUES (?, ?, ?, 'served', ?, ?)
-    `).run(line.ingredient_id, item.id, -needed, `Served order item ${item.id}`, actorId);
-    lowStock ||= line.stock - needed <= line.low_stock_threshold;
+    `).run(line.ingredient_id, item.id, movementDelta, `Served order item ${item.id}`, actorId);
+    lowStock ||= nextStock <= roundStockQuantity(line.low_stock_threshold, 'Low stock threshold');
   }
   return lowStock;
 }

@@ -4,6 +4,7 @@ import { getDb } from '../db.ts';
 import { HttpError } from '../errors.ts';
 import { id, now, pagination } from '../http.ts';
 import { requirePermission, type AuthRequest } from '../middleware.ts';
+import { applyStockChange, roundStockQuantity } from '../stock.ts';
 import { parse } from '../validate.ts';
 
 export const inventoryRouter = Router();
@@ -77,11 +78,18 @@ inventoryRouter.put('/recipes/:menuItemId', requirePermission('recipe:write'), (
     throw new HttpError(400, 'Unknown menuItemId.');
   }
   const seen = new Set<string>();
-  for (const line of input.lines) {
+  const lines = input.lines.map((line) => ({
+    ingredientId: line.ingredientId,
+    quantity: roundStockQuantity(line.quantity, 'Recipe quantity'),
+  }));
+  for (const line of lines) {
     if (seen.has(line.ingredientId)) {
       throw new HttpError(400, 'Duplicate ingredientId in recipe lines.');
     }
     seen.add(line.ingredientId);
+    if (line.quantity <= 0) {
+      throw new HttpError(400, 'Recipe quantities must be at least 0.001.');
+    }
     if (!db.prepare('SELECT 1 FROM ingredients WHERE id = ?').get(line.ingredientId)) {
       throw new HttpError(400, `Unknown ingredientId: ${line.ingredientId}`);
     }
@@ -91,7 +99,7 @@ inventoryRouter.put('/recipes/:menuItemId', requirePermission('recipe:write'), (
     const insert = db.prepare(
       'INSERT INTO recipe_items (menu_item_id, ingredient_id, quantity) VALUES (?, ?, ?)'
     );
-    for (const line of input.lines) {
+    for (const line of lines) {
       insert.run(req.params.menuItemId, line.ingredientId, line.quantity);
     }
   }).immediate();
@@ -128,7 +136,14 @@ inventoryRouter.post('/ingredients', requirePermission('inventory:write'), (req,
       INSERT INTO ingredients (id, name, unit, stock, low_stock_threshold, unit_cost)
       VALUES (?, ?, ?, ?, ?, ?)
     `)
-    .run(ingredientId, input.name, input.unit, input.stock, input.lowStockThreshold, input.unitCost);
+    .run(
+      ingredientId,
+      input.name,
+      input.unit,
+      roundStockQuantity(input.stock, 'Stock'),
+      roundStockQuantity(input.lowStockThreshold, 'Low stock threshold'),
+      input.unitCost
+    );
   res.status(201).json(getDb().prepare('SELECT * FROM ingredients WHERE id = ?').get(ingredientId));
 });
 
@@ -145,8 +160,12 @@ inventoryRouter.put('/ingredients/:id', requirePermission('inventory:write'), (r
   `).run(
     input.name ?? existing.name,
     input.unit ?? existing.unit,
-    input.stock ?? existing.stock,
-    input.lowStockThreshold ?? existing.low_stock_threshold,
+    input.stock === undefined
+      ? roundStockQuantity(existing.stock, 'Stock')
+      : roundStockQuantity(input.stock, 'Stock'),
+    input.lowStockThreshold === undefined
+      ? roundStockQuantity(existing.low_stock_threshold, 'Low stock threshold')
+      : roundStockQuantity(input.lowStockThreshold, 'Low stock threshold'),
     input.unitCost ?? existing.unit_cost,
     now(),
     req.params.id
@@ -167,8 +186,9 @@ inventoryRouter.post('/ingredients/:id/adjust', requirePermission('inventory:wri
     | Row
     | undefined;
   if (!ingredient) throw new HttpError(404, 'Ingredient not found.');
-  const nextStock = ingredient.stock + input.quantity;
-  if (nextStock < 0) throw new HttpError(409, 'Stock cannot become negative.');
+  const delta = roundStockQuantity(input.quantity, 'Adjustment quantity');
+  if (delta === 0) throw new HttpError(400, 'Adjustment quantity is too small.');
+  const nextStock = applyStockChange(ingredient.stock, delta);
 
   db.transaction(() => {
     db.prepare('UPDATE ingredients SET stock = ?, updated_at = ? WHERE id = ?').run(
@@ -179,7 +199,7 @@ inventoryRouter.post('/ingredients/:id/adjust', requirePermission('inventory:wri
     db.prepare(`
       INSERT INTO stock_movements (ingredient_id, quantity, reason, note, created_by)
       VALUES (?, ?, 'manual', ?, ?)
-    `).run(req.params.id, input.quantity, input.note, req.auth!.userId);
+    `).run(req.params.id, delta, input.note, req.auth!.userId);
   }).immediate();
   res.status(201).json(db.prepare('SELECT * FROM ingredients WHERE id = ?').get(req.params.id));
 });
