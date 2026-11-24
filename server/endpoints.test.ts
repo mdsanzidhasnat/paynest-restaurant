@@ -303,7 +303,7 @@ describe('billing', () => {
     expect(clamped.body.totals.total).toBe(0);
   });
 
-  it('caps cashier discounts via MAX_CASHIER_DISCOUNT_PERCENT', async () => {
+  it('rejects cashier discounts above MAX_CASHIER_DISCOUNT_PERCENT', async () => {
     const order = await newOrder();
     await addItem(order.id, 'm1', 2);
     const subtotal = (await call('cashier', 'get', `/api/bills/orders/${order.id}`)).body.totals.subtotal;
@@ -313,15 +313,23 @@ describe('billing', () => {
       type: 'percent',
       value: 50,
     });
-    expect(percent.status).toBe(200);
-    expect(percent.body.totals.discount).toBe(expected);
+    expect(percent.status).toBe(403);
 
     const fixed = await call('cashier', 'post', `/api/bills/orders/${order.id}/discount`, {
       type: 'fixed',
       value: 99_999_999,
     });
-    expect(fixed.status).toBe(200);
-    expect(fixed.body.totals.discount).toBe(expected);
+    expect(fixed.status).toBe(403);
+    expect(
+      (await call('cashier', 'get', `/api/bills/orders/${order.id}`)).body.totals.discount
+    ).toBe(0);
+
+    const allowed = await call('cashier', 'post', `/api/bills/orders/${order.id}/discount`, {
+      type: 'percent',
+      value: 10,
+    });
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.totals.discount).toBe(expected);
   });
 
   it('splits by equal parts and by items with exact totals', async () => {

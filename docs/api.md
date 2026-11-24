@@ -19,7 +19,7 @@ Every mutating request (`POST`, `PUT`, `PATCH`, `DELETE`) must send `Content-Typ
 | `manager` | Everything except user management and settings; can cancel orders, override item status, apply discounts and void bills |
 | `waiter` | Reads menu/tables/orders/bills; creates and modifies orders, transfers tables, serves items, requests bills; no discounts, reports or deletes |
 | `kitchen` | Reads menu, inventory, recipes, orders and kitchen tickets; moves items `new → preparing → ready` (and availability toggle); cannot serve or take payment |
-| `cashier` | Reads orders and bills; applies discounts capped by `MAX_CASHIER_DISCOUNT_PERCENT` (default `10`), splits bills, records payments and reads invoices; no reports or menu price edits |
+| `cashier` | Reads orders and bills; applies discounts up to `MAX_CASHIER_DISCOUNT_PERCENT` (default `10`), with larger requests rejected as `403`; splits bills, records payments and reads invoices; no reports or menu price edits |
 
 ### Status codes and error shape
 
@@ -32,7 +32,7 @@ Errors are returned as `{ "error": "message", ...details }` by [server/middlewar
 | `204` | Record deleted; empty body |
 | `400` | Invalid JSON body, Zod validation failure or bad query parameter |
 | `401` | Missing, invalid, or expired cookie; inactive user |
-| `403` | Permission or role denied; CORS origin denied |
+| `403` | Permission or role denied; CORS origin denied; cashier discount above `MAX_CASHIER_DISCOUNT_PERCENT` |
 | `404` | Record not found |
 | `409` | Invalid state transition, insufficient stock (`lowStock: true`, `ingredientId`), unpaid bill close, unique constraint conflict, foreign key still referenced, or last-active-admin guard |
 | `415` | Mutating request without `Content-Type: application/json` |
@@ -145,7 +145,7 @@ Backward transitions require `orders:override`. The kitchen cannot mark items se
 |---|---|---|---|---|
 | `GET` | `/orders/:orderId` | `bills:read` | — | `200 { order, lines, totals, paid, due, payments, splits, settings }` |
 | `POST` | `/orders/:orderId/request` | `bills:request` | `{}` | `201` bill; allocates `bill_number` once, sets table to `bill_pending` |
-| `POST` | `/orders/:orderId/discount` | `bills:write` | `{ type: 'none'\|'fixed'\|'percent', value }` | `200` bill with resolved discount |
+| `POST` | `/orders/:orderId/discount` | `bills:write` | `{ type: 'none'\|'fixed'\|'percent', value }` | `200` bill with resolved discount; `403` when a cashier requests more than `MAX_CASHIER_DISCOUNT_PERCENT` |
 | `POST` | `/orders/:orderId/splits` | `bills:split` | `{ mode: 'equal', parts }` or `{ mode: 'items' }` | `201` bill with split plan summing exactly to `total` |
 | `POST` | `/orders/:orderId/payments` | `bills:pay` | `{ method, amount, reference?, splitId? }` | `201` bill; closes when payments cover total |
 | `POST` | `/orders/:orderId/close` | `bills:pay` | `{}` | `200` closed bill, or `409` if still underpaid |

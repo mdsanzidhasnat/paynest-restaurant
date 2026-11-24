@@ -1,13 +1,11 @@
 import './env.ts';
 
-import fs from 'node:fs';
-import path from 'node:path';
-import express from 'express';
 import { createApp } from './app.ts';
 import { getJwtSecret, getPort } from './config.ts';
 import { closeDb, initDb } from './db.ts';
 import { logError, logStage } from './log.ts';
 import { getDistDir } from './paths.ts';
+import { mountStaticFiles } from './static.ts';
 
 function main(): void {
   try {
@@ -15,18 +13,7 @@ function main(): void {
     initDb();
 
     const app = createApp();
-    const distDir = getDistDir();
-
-    if (fs.existsSync(distDir)) {
-      app.use(express.static(distDir));
-      app.get('*', (req, res, next) => {
-        if (req.path.startsWith('/api')) {
-          next();
-          return;
-        }
-        res.sendFile(path.join(distDir, 'index.html'));
-      });
-    }
+    mountStaticFiles(app, getDistDir());
 
     logStage('Routes mounted');
 

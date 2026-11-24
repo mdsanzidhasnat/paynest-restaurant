@@ -10,7 +10,7 @@ The five roles are `admin`, `manager`, `waiter`, `kitchen` and `cashier`. Preser
 
 ## Hard rules
 
-- Money (VAT, service charge, discounts, subtotals, totals and dues) is computed only by `server/billing.ts` and `server/order-totals.ts`. Clients never submit totals or counters. Amounts are INTEGER minor units (paisa); percentages are REAL `0..100`. Reject negative or non-numeric money and clamp discounts; `MAX_CASHIER_DISCOUNT_PERCENT` caps cashier discounts.
+- Money (VAT, service charge, discounts, subtotals, totals and dues) is computed only by `server/billing.ts` and `server/order-totals.ts`. Clients never submit totals or counters. Amounts are INTEGER minor units (paisa); percentages are REAL `0..100`. Reject negative or non-numeric money and clamp discounts; cashier discounts above `MAX_CASHIER_DISCOUNT_PERCENT` are rejected with `403`.
 - Passwords are always bcrypt hashes. JWT authentication and all role/permission checks happen on the backend; frontend hiding is cosmetic only.
 - Every `/api` route except `GET /api/health`, `POST /api/auth/login` and the signed `/api/public/*` routes passes through `requireAuth` and an explicit `requirePermission`/`requireRole` guard.
 - Public QR routes are minimal, rate limited, Zod-validated and scoped to a signed table token. They return only the published menu and that table's own order status. Never expose cost, stock count, recipe, staff or other-table data there.

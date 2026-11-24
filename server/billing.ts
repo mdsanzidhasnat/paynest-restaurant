@@ -66,6 +66,27 @@ export function calculateSubtotal(lines: readonly BillableLine[]): number {
 }
 
 /**
+ * Reports whether a requested discount is larger than a role cap. The route
+ * can reject an over-limit request while the calculation below still clamps
+ * every stored amount as a defence in depth.
+ */
+export function discountExceedsCap(
+  subtotal: number,
+  input: DiscountInput,
+  maxPercent = 100
+): boolean {
+  const safeSubtotal = assertMinorUnits(subtotal, 'Subtotal');
+  const capPercent = assertPercent(maxPercent, 'Discount cap');
+  if (input.type === 'percent') {
+    return typeof input.value === 'number' && input.value > capPercent;
+  }
+  if (input.type === 'fixed') {
+    return assertMinorUnits(input.value, 'Discount') > Math.floor((safeSubtotal * capPercent) / 100);
+  }
+  return false;
+}
+
+/**
  * Resolves a fixed or percentage discount into minor units. The result is
  * always clamped to 0..subtotal; an optional role cap (e.g. cashier 10%) is
  * applied to both discount types before the final clamp.

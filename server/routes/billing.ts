@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   calculateDue,
   calculateOrderTotals,
+  discountExceedsCap,
   resolveDiscountAmount,
   roundMinorUnits,
   splitEqually,
@@ -119,6 +120,12 @@ billingRouter.post('/orders/:orderId/discount', requirePermission('bills:write')
   const order = assertBillable(req.params.orderId);
   const view = billView(order.id);
   const cap = req.auth!.role === 'cashier' ? getMaxCashierDiscountPercent() : 100;
+  if (
+    req.auth!.role === 'cashier' &&
+    discountExceedsCap(view.totals.subtotal, { type: input.type, value: input.value }, cap)
+  ) {
+    throw new HttpError(403, `Cashier discounts cannot exceed ${cap}% of the subtotal.`);
+  }
   let amount: number;
   try {
     amount = resolveDiscountAmount(

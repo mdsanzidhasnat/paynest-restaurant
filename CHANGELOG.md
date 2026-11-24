@@ -17,6 +17,11 @@ First release of PayNest Restaurant as a single-service table-management applica
 - Integration tests built with Vitest and Supertest, component/helper tests, a native-module smoke test and a CI workflow.
 - Multi-stage Docker image, optional-`.env` Compose deployment, Render service definition and Dependabot configuration.
 
+### Fixed during final verification
+
+- Cashier discount requests above `MAX_CASHIER_DISCOUNT_PERCENT` now return `403`; valid requests are still resolved and clamped on the server.
+- Missing paths under `/assets` now return a real `404` instead of falling through to the SPA shell.
+
 ### Security
 
 - Passwords are bcrypt hashes; JWTs are stored in an httpOnly `SameSite=Strict` cookie that becomes `secure` in production.
